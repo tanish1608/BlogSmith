@@ -1,0 +1,27 @@
+# Build + deploy the Cloud Run Job that executes one run's Phase A.
+# The API service dispatches it with RUN_UID / RUN_SITE_ID / RUN_ID overrides.
+#   gcloud builds submit --config deploy/cloudbuild.job.yaml \
+#       --substitutions=_REGION=us-central1
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_IMAGE}", "-f", "Dockerfile", "."]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "${_IMAGE}"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - blogsmith-job
+      - --image=${_IMAGE}
+      - --region=${_REGION}
+      - --command=python
+      - --args=-m,blogsmith.run_job
+      - --set-env-vars=APP_ENV=prod
+      - --set-secrets=KEY_ENCRYPTION_KEY=blogsmith-enc-key:latest,APPROVAL_TOKEN_SECRET=blogsmith-approval-secret:latest
+substitutions:
+  _REGION: us-central1
+  _IMAGE: gcr.io/${PROJECT_ID}/blogsmith-job
+images:
+  - ${_IMAGE}

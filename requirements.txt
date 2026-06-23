@@ -1,0 +1,30 @@
+# ── Web / API ────────────────────────────────────────────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-multipart==0.0.20
+httpx==0.28.1
+
+# ── Firebase (Auth + Firestore + Storage) ─────────────────────────────────────
+firebase-admin==6.6.0
+google-cloud-firestore==2.20.0
+
+# ── LLM / agent orchestration ─────────────────────────────────────────────────
+langgraph==0.2.61
+langchain-core==0.3.28
+langchain-google-genai==2.0.7
+google-genai==0.3.0
+langsmith==0.2.10
+
+# ── Security ──────────────────────────────────────────────────────────────────
+cryptography==44.0.0
+PyJWT==2.10.1
+
+# ── Cloud dispatch (Cloud Run Jobs) ───────────────────────────────────────────
+google-cloud-run==0.10.13
+
+# ── Dev / test ────────────────────────────────────────────────────────────────
+pytest==8.3.4
+pytest-asyncio==0.25.1
+ruff==0.8.6

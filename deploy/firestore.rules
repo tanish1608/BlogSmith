@@ -1,0 +1,16 @@
+rules_version = '2';
+// All data access goes through the BlogSmith Admin SDK (server-side), which
+// enforces ownership per authenticated uid. Lock down direct client access.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // A signed-in user may read their own profile/sites/runs from the client
+    // (e.g. the dashboard) but all writes go through the API (Admin SDK bypasses rules).
+    match /users/{uid}/{document=**} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

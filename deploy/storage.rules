@@ -1,0 +1,11 @@
+rules_version = '2';
+// Generated blog images. Public read (they're embedded in published posts);
+// writes only via the Admin SDK from the server.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
