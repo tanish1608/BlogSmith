@@ -37,6 +37,11 @@ export const api = {
   getRun: (siteId: string, runId: string) => req<Run>(`/sites/${siteId}/runs/${runId}`),
   getResult: (siteId: string, runId: string) =>
     req<RunResult>(`/sites/${siteId}/runs/${runId}/result`),
+  decide: (siteId: string, runId: string, decision: string, edits?: string) =>
+    req<Run>(`/sites/${siteId}/runs/${runId}/decision`, {
+      method: "POST",
+      body: JSON.stringify({ decision, edits }),
+    }),
 
   discover: (siteId: string) =>
     req<any>("/tools/discover", { method: "POST", body: JSON.stringify({ site_id: siteId }) }),

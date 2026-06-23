@@ -1,13 +1,15 @@
 # BlogSmith — A Production-Grade Agentic Blogging Service
 
-**One authenticated server that researches, writes, illustrates, and distributes
+**One authenticated dashboard that researches, writes, illustrates, and distributes
 human-like, SEO-strong blog posts for all of your websites — with a non-negotiable
-human-expert checkpoint.**
+human-expert review gate, shown as a live LangSmith-style run thread.**
 
 | | |
 |---|---|
-| **Swagger / API** | `http://localhost:8000/docs` |
 | **Dashboard** | `http://localhost:8000/` |
+
+Users interact entirely through the **dashboard**. The HTTP layer exists only to back
+it (Swagger is available at `/docs` for debugging, but it is not the product surface).
 
 ---
 
@@ -28,10 +30,12 @@ whole thing runs locally with zero cloud infrastructure.
 ## Highlights
 
 - **9-stage LangGraph pipeline** — `Discovery → Research → Outline → Draft → Critique →
-  [human email gate] → Finalize → Visuals → Distribute`, one clean LangSmith trace per blog.
-- **Human-expert email gate** — each draft is emailed with signed **approve / edit / reject**
-  links. The run pauses durably (the Firestore document is the checkpoint) and resumes in a
-  separate serverless process when a link is clicked. No inbound mail parsing.
+  [human review gate] → Finalize → Visuals → Distribute`, one clean LangSmith trace per blog.
+- **LangSmith-style run thread** — the dashboard shows each blog as a live vertical timeline:
+  which stage is running, each stage's output expandable, with the review gate inline.
+- **In-dashboard review gate** — at the gate the run pauses (the Firestore document is the
+  durable checkpoint) and shows **approve / edit / reject** right in the thread; approve/edit
+  resumes finalize → visuals → distribute. No email.
 - **The prompts are the product** — authored, versioned default system prompts for every
   stage (anti-AI-tell writing rules, SEO checklist, source discipline) that each user layers
   their own **per-domain custom prompts** and brand voice on top of.
@@ -80,22 +84,20 @@ flowchart TD
     DB[("🔥 Firestore\nusers · sites · runs (stage slices)")]
     STORE[("🖼️ Storage\ngenerated images")]
     LS["🔍 LangSmith\n1 trace per blog"]
-    MAIL["✉️ Approval email\napprove / edit / reject links"]
 
     USER -->|HTTPS + ID token| API
     API -->|dispatch Phase A| JOB
     GRAPH -->|write slices| DB
-    GRAPH -->|pause + send| MAIL
-    MAIL -->|signed link| API
+    USER -->|approve / edit / reject in dashboard| API
     API -->|Phase B: finalize→visuals→distribute| DB
     GRAPH --> STORE
     GRAPH -. trace .-> LS
     API -->|read| DB
 ```
 
-The human gate splits execution into **Phase A** (discovery → gate, in the Job) and
-**Phase B** (finalize → visuals → distribute, resumed in the Service on link click). The same
-compiled graph serves both via a conditional entry point; state is rebuilt from the run
+The review gate splits execution into **Phase A** (discovery → gate, in the Job) and
+**Phase B** (finalize → visuals → distribute, resumed when you act in the dashboard). The
+same compiled graph serves both via a conditional entry point; state is rebuilt from the run
 document, so a paused run survives any process restart.
 
 ---
@@ -112,7 +114,7 @@ document, so a paused run survives any process restart.
    emitting `[[IMAGE: …]]` placeholders. *(Requires a Gemini key.)*
 5. **Critique** — a ruthless editor pass: strips fluff, kills AI tells, flags claims, runs the
    SEO checklist. Deterministic SEO score from `seo.py`; the model only narrates.
-6. **Human email gate** — emails the draft with approve/edit/reject links; pauses the run.
+6. **Human review gate** — pauses the run; you approve/edit/reject in the dashboard thread.
 7. **Finalize** — title, meta description, slug, JSON-LD schema, per-image generation prompts
    and alt text. The body is locked.
 8. **Visuals** — generates each image with Gemini → Firebase Storage → embeds it; diagrams
@@ -121,34 +123,55 @@ document, so a paused run survives any process restart.
 
 ---
 
-## Run it yourself (local, zero cloud infra)
+## Run it locally
+
+Local dev uses your **real Firebase project** (Firestore + Auth) — no emulator, no Java.
+The backend talks to Firestore via your gcloud Application Default Credentials.
+
+**One-time setup**
 
 ```bash
-# Backend
+# Python backend
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env              # add a Gemini key to generate real content/images
+cp .env.example .env              # set FIREBASE_PROJECT_ID + a KEY_ENCRYPTION_KEY
 
-# Build the dashboard (served by FastAPI)
-cd frontend && npm install && npm run build && cd ..
+# Credentials for Firestore/Auth from your machine
+gcloud auth application-default login
+gcloud config set project <your-project-id>
 
-# Firebase emulator (needs Java 21) — optional; tests use an in-memory fake instead
-firebase emulators:start &
+# Frontend deps + Firebase web config
+cd frontend && npm install && cd ..
+#   put your Firebase web config in frontend/.env (VITE_FIREBASE_*)
+```
 
-uvicorn blogsmith.api.main:app --reload
-#   → http://localhost:8000        (dashboard)
-#   → http://localhost:8000/docs   (Swagger)
+**Run both servers (one command)**
 
-# Full pipeline end-to-end (uses fakes if no Gemini key is set):
+```bash
+./dev.sh
+#   → http://localhost:5173   dashboard (Vite dev server, hot reload)
+#   → http://localhost:8000   API + Swagger at /docs
+```
+
+The dashboard on :5173 proxies API calls to the backend on :8000; Firebase Auth runs in the
+browser. Use the dashboard at **:5173** during development.
+
+> Want to skip login while iterating? Set `AUTH_DISABLED=true` in `.env` and remove
+> `frontend/.env` — the backend then uses a fixed dev user and the dashboard runs token-less.
+
+**Other commands**
+
+```bash
+# Full pipeline end-to-end without a server (uses fakes if no Gemini key is set):
 python scripts/demo_run.py --topic "DPDPA compliance checklist for SaaS"
 
-# Correctness gates
+# Correctness gates (in-memory Firestore fake — no cloud/Java needed)
 ruff check blogsmith tests
 pytest -q
 ```
 
-With `AUTH_DISABLED=true` (the default in `.env.example`), the API skips Firebase token
-verification and uses a fixed dev user — so the dashboard and Swagger work with no login.
+When you're ready to host, see `deploy/README.md` for Cloud Run (the same Firebase project
+backs both local and prod).
 
 ---
 
@@ -163,8 +186,7 @@ blogsmith/
     routers/
       account.py       BYOK provider keys (encrypted)
       sites.py         CRUD sites + per-site custom prompts + schedule
-      runs.py          create run, status, result
-      approvals.py     email-gate landing pages (approve/edit/reject)
+      runs.py          create run, status, result, review decision (approve/edit/reject)
       scheduler.py     POST /scheduler/tick (Cloud Scheduler)
       tools.py         /health, /tools/discover, /tools/draft, /tools/preview-image
   graph/               THE INTELLIGENCE LAYER
@@ -180,7 +202,6 @@ blogsmith/
     assemble.py        base + brand voice + per-site custom prompt layering (versioned)
   discovery.py research.py outline.py draft.py critique.py finalize.py visuals.py distribute.py
   seo.py               deterministic SEO scoring
-  email_gate.py        signed approval tokens + email sender (SendGrid | console)
   schedule.py          cadence → due-slot computation
   runner.py            build RunContext from Firestore; execute_run / execute_resume
   run_job.py           Cloud Run Job entrypoint
@@ -198,6 +219,7 @@ tests/                 in-memory Firestore fake + per-stage / pipeline / gate-re
 
 - Provider keys are Fernet-encrypted at rest and decrypted only into the in-memory run
   context — never persisted into the graph state/checkpoint.
-- Email approval links are short-lived signed JWTs; the action is bound into the token.
+- The review gate is driven by authenticated dashboard calls (Firebase ID token); the
+  decision endpoint verifies ownership before resuming a run.
 - Firestore/Storage rules deny direct client writes; all writes go through the Admin SDK,
   which enforces per-uid ownership.

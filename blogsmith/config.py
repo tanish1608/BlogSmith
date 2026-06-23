@@ -46,9 +46,6 @@ class Settings(BaseSettings):
     # urlsafe base64 32-byte Fernet key, used to encrypt BYOK provider keys at
     # rest in Firestore. A throwaway key is generated for dev if unset.
     key_encryption_key: str | None = Field(default=None)
-    # HMAC secret for signing email approval tokens (JWT).
-    approval_token_secret: str = Field(default="dev-approval-secret-change-me")
-    approval_token_ttl_hours: int = Field(default=168)  # 7 days to act on a draft
 
     # ── LLM defaults (per-user key is BYOK; these are model ids/budgets) ───────
     text_model: str = Field(default="gemini-2.0-flash")
@@ -60,12 +57,6 @@ class Settings(BaseSettings):
     # ── LangSmith (optional observability) ────────────────────────────────────
     langsmith_api_key: str | None = Field(default=None)
     langsmith_project: str = Field(default="blogsmith")
-
-    # ── Email (outbound only; approve/edit/reject via signed links) ───────────
-    email_provider: str = Field(default="console", description="console | sendgrid")
-    sendgrid_api_key: str | None = Field(default=None)
-    email_from: str = Field(default="blogs@blogsmith.local")
-    email_from_name: str = Field(default="BlogSmith")
 
     # ── Run dispatch ──────────────────────────────────────────────────────────
     dispatch_to_cloud_run: bool = Field(default=False)

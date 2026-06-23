@@ -22,7 +22,6 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
 # Secrets (generate strong values)
 python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())" \
   | gcloud secrets create blogsmith-enc-key --data-file=-
-printf '%s' "$(openssl rand -hex 32)" | gcloud secrets create blogsmith-approval-secret --data-file=-
 printf '%s' "$(openssl rand -hex 32)" | gcloud secrets create blogsmith-scheduler-secret --data-file=-
 
 # Firestore + Storage rules
@@ -36,13 +35,6 @@ Create users in the **Firebase console → Authentication**. They sign in via th
 ```bash
 gcloud builds submit --config deploy/cloudbuild.api.yaml --substitutions=_REGION=$REGION
 gcloud builds submit --config deploy/cloudbuild.job.yaml --substitutions=_REGION=$REGION
-```
-
-Set `PUBLIC_BASE_URL` on the API service to its public URL so email approval links resolve:
-
-```bash
-gcloud run services update blogsmith-api --region=$REGION \
-  --set-env-vars=PUBLIC_BASE_URL=https://blogsmith-api-XXXX.run.app,EMAIL_PROVIDER=sendgrid
 ```
 
 ## 3. Scheduler

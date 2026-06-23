@@ -19,7 +19,7 @@ steps:
       - --command=python
       - --args=-m,blogsmith.run_job
       - --set-env-vars=APP_ENV=prod
-      - --set-secrets=KEY_ENCRYPTION_KEY=blogsmith-enc-key:latest,APPROVAL_TOKEN_SECRET=blogsmith-approval-secret:latest
+      - --set-secrets=KEY_ENCRYPTION_KEY=blogsmith-enc-key:latest
 substitutions:
   _REGION: us-central1
   _IMAGE: gcr.io/${PROJECT_ID}/blogsmith-job

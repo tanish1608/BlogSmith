@@ -50,6 +50,32 @@ def test_create_run_executes_and_returns_result(client, patched_runner):
     assert len(result["linkedin_thread"]) >= 2
 
 
+def test_review_gate_decision_resumes_run(client, patched_runner):
+    site_id = _make_site(client)
+    r = client.post(f"/sites/{site_id}/runs", json={
+        "topic": "DPDPA compliance checklist",
+        "keyword": "dpdpa compliance checklist",
+        "auto_approve": False,
+    })
+    run_id = r.json()["id"]
+
+    # Phase A ran in the background → paused at the review gate.
+    assert client.get(f"/sites/{site_id}/runs/{run_id}").json()["status"] == "awaiting_expert"
+
+    # Approve from the dashboard → resumes to done.
+    r = client.post(f"/sites/{site_id}/runs/{run_id}/decision", json={"decision": "approve"})
+    assert r.status_code == 202
+    assert client.get(f"/sites/{site_id}/runs/{run_id}").json()["status"] == "done"
+
+
+def test_decision_rejected_when_not_awaiting(client, patched_runner):
+    site_id = _make_site(client)
+    r = client.post(f"/sites/{site_id}/runs", json={"topic": "x", "auto_approve": True})
+    run_id = r.json()["id"]  # auto-approve → already done, not awaiting
+    r = client.post(f"/sites/{site_id}/runs/{run_id}/decision", json={"decision": "approve"})
+    assert r.status_code == 409
+
+
 def test_scheduler_tick_fans_out(client, fake_db, monkeypatch):
     site_id = _make_site(client)
     # Enable a daily slot that's already past today.

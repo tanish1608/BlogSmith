@@ -91,20 +91,15 @@ async def critique_node(state: BlogState, config: dict) -> dict:
 
 
 async def gate_node(state: BlogState, config: dict) -> dict:
-    """The human email gate. Auto-approve continues; otherwise pause + email."""
+    """The human review gate. Auto-approve continues; otherwise the run pauses at
+    ``awaiting_expert`` and waits for an approve/edit/reject decision submitted
+    from the dashboard (see the run decision endpoint)."""
     ctx = ctx_from_config(config)
     if ctx.auto_approve:
         expert = {"decision": ExpertDecision.APPROVE.value, "auto": True}
         ctx.persist("expert", expert, status=RunStatus.FINALIZING)
         return {"expert": expert, "status": RunStatus.FINALIZING.value}
 
-    # Pause for the human expert. Email is sent best-effort (module added in task #6).
-    try:
-        from blogsmith.email_gate import send_draft_for_approval
-
-        send_draft_for_approval(ctx, state)
-    except Exception as exc:  # noqa: BLE001 — never lose the run because email failed
-        logger.error("Failed to send approval email: %s", exc)
     expert = {"decision": "pending"}
     ctx.persist("expert", expert, status=RunStatus.AWAITING_EXPERT)
     return {"expert": expert, "status": RunStatus.AWAITING_EXPERT.value}

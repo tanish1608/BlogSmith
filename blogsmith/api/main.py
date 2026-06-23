@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from blogsmith import __version__
-from blogsmith.api.routers import account, approvals, runs, scheduler, sites, tools
+from blogsmith.api.routers import account, runs, scheduler, sites, tools
 from blogsmith.config import get_settings
 from blogsmith.firestore_db import init_firebase
 
@@ -65,7 +65,6 @@ def create_app() -> FastAPI:
     app.include_router(account.router)
     app.include_router(sites.router)
     app.include_router(runs.router)
-    app.include_router(approvals.router)
     app.include_router(scheduler.router)
 
     _mount_frontend(app)

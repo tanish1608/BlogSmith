@@ -14,7 +14,7 @@ from blogsmith.crypto import decrypt, encrypt, mask
 from blogsmith.firestore_db import user_doc
 
 # Provider keys we know how to store, in a stable order.
-KEY_FIELDS = ("gemini_key", "langsmith_key", "serp_key", "sendgrid_key")
+KEY_FIELDS = ("gemini_key", "langsmith_key", "serp_key")
 
 
 def ensure_user(uid: str, email: str | None) -> dict:

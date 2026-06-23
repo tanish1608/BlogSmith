@@ -42,23 +42,6 @@ def patched_runner(monkeypatch):
     monkeypatch.setattr("blogsmith.runner.ImageClient", lambda *a, **k: FakeImages())
 
 
-def test_token_roundtrip_and_tamper(fake_db):
-    from blogsmith.email_gate import build_links, sign_token, verify_token
-
-    token = sign_token("u1", "s1", "r1", "approve")
-    claims = verify_token(token)
-    assert claims["uid"] == "u1" and claims["action"] == "approve"
-
-    import jwt
-
-    with pytest.raises(jwt.InvalidTokenError):
-        verify_token(token + "tampered")
-
-    links = build_links("u1", "s1", "r1")
-    assert set(links) == {"approve", "edit", "reject"}
-    assert "/approvals/" in links["approve"]
-
-
 @pytest.mark.asyncio
 async def test_runner_auto_approve_completes(fake_db, patched_runner):
     from blogsmith.firestore_db import run_doc

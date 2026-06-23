@@ -31,7 +31,6 @@ async def health() -> dict:
         "integrations": {
             "firestore_emulator": bool(s.firestore_emulator_host),
             "auth_disabled": s.auth_disabled,
-            "email_provider": s.email_provider,
             "langsmith": bool(s.langsmith_api_key),
             "dispatch": "cloud_run" if s.dispatch_to_cloud_run else "in_process",
             "text_model": s.text_model,

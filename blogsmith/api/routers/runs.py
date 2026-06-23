@@ -15,7 +15,9 @@ from google.cloud import firestore
 from blogsmith.api.auth import AuthedUser, current_user
 from blogsmith.api.jobs import dispatch_run
 from blogsmith.firestore_db import run_doc, runs_col, site_doc
-from blogsmith.schemas import RunCreate, RunOut, RunResult
+from blogsmith.models import ExpertDecision, RunStatus
+from blogsmith.runner import execute_resume
+from blogsmith.schemas import RunCreate, RunDecision, RunOut, RunResult
 
 router = APIRouter(prefix="/sites/{site_id}/runs", tags=["runs"])
 
@@ -75,6 +77,38 @@ async def get_run(site_id: str, run_id: str, user: AuthedUser = Depends(current_
     if not snap.exists:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.")
     return _run_out(site_id, run_id, snap.to_dict() or {})
+
+
+@router.post("/{run_id}/decision", response_model=RunOut, status_code=status.HTTP_202_ACCEPTED)
+async def submit_decision(
+    site_id: str,
+    run_id: str,
+    payload: RunDecision,
+    background: BackgroundTasks,
+    user: AuthedUser = Depends(current_user),
+) -> RunOut:
+    """The human review gate, driven from the dashboard.
+
+    approve → finalize → visuals → distribute; edit → same with the edited body;
+    reject → stop. Runs in the background; poll GET to watch progress.
+    """
+    snap = run_doc(user.uid, site_id, run_id).get()
+    if not snap.exists:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.")
+    data = snap.to_dict() or {}
+    if data.get("status") != RunStatus.AWAITING_EXPERT.value:
+        raise HTTPException(status_code=409, detail="Run is not awaiting review.")
+
+    valid = {d.value for d in ExpertDecision}
+    if payload.decision not in valid:
+        raise HTTPException(status_code=422, detail=f"decision must be one of {sorted(valid)}.")
+    if payload.decision == ExpertDecision.EDIT.value and not payload.edits:
+        raise HTTPException(status_code=422, detail="'edit' requires the edited markdown body.")
+
+    background.add_task(
+        execute_resume, user.uid, site_id, run_id, payload.decision, payload.edits
+    )
+    return _run_out(site_id, run_id, data)
 
 
 @router.get("/{run_id}/result", response_model=RunResult)

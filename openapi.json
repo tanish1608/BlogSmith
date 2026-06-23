@@ -621,6 +621,73 @@
         }
       }
     },
+    "/sites/{site_id}/runs/{run_id}/decision": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Submit Decision",
+        "description": "The human review gate, driven from the dashboard.\n\napprove \u2192 finalize \u2192 visuals \u2192 distribute; edit \u2192 same with the edited body;\nreject \u2192 stop. Runs in the background; poll GET to watch progress.",
+        "operationId": "submit_decision_sites__site_id__runs__run_id__decision_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sites/{site_id}/runs/{run_id}/result": {
       "get": {
         "tags": [
@@ -660,98 +727,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RunResult"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/approvals/{token}": {
-      "get": {
-        "tags": [
-          "approvals"
-        ],
-        "summary": "Handle Link",
-        "operationId": "handle_link_approvals__token__get",
-        "parameters": [
-          {
-            "name": "token",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "text/html": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "approvals"
-        ],
-        "summary": "Submit Edit",
-        "operationId": "submit_edit_approvals__token__post",
-        "parameters": [
-          {
-            "name": "token",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_submit_edit_approvals__token__post"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "text/html": {
-                "schema": {
-                  "type": "string"
                 }
               }
             }
@@ -864,19 +839,6 @@
           "uid"
         ],
         "title": "AccountOut"
-      },
-      "Body_submit_edit_approvals__token__post": {
-        "properties": {
-          "edited_markdown": {
-            "type": "string",
-            "title": "Edited Markdown"
-          }
-        },
-        "type": "object",
-        "required": [
-          "edited_markdown"
-        ],
-        "title": "Body_submit_edit_approvals__token__post"
       },
       "CustomPrompts": {
         "properties": {
@@ -1180,18 +1142,6 @@
             ],
             "title": "Serp Key",
             "description": "SERP provider key for discovery (optional)."
-          },
-          "sendgrid_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sendgrid Key",
-            "description": "SendGrid key for sending approval emails (optional)."
           }
         },
         "type": "object",
@@ -1257,6 +1207,33 @@
         },
         "type": "object",
         "title": "RunCreate"
+      },
+      "RunDecision": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "title": "Decision",
+            "description": "approve | edit | reject"
+          },
+          "edits": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edits",
+            "description": "Edited markdown body (required for 'edit')."
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "RunDecision",
+        "description": "The human review decision, submitted from the dashboard at the gate."
       },
       "RunOut": {
         "properties": {

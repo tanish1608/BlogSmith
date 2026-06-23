@@ -6,7 +6,6 @@ const KEY_FIELDS: { key: string; label: string; hint: string }[] = [
   { key: "gemini_key", label: "Gemini API key", hint: "Required to generate posts and images." },
   { key: "langsmith_key", label: "LangSmith key", hint: "Optional — pipeline tracing." },
   { key: "serp_key", label: "SERP key", hint: "Optional — paid discovery sources." },
-  { key: "sendgrid_key", label: "SendGrid key", hint: "Optional — send approval emails." },
 ];
 
 export default function Settings() {

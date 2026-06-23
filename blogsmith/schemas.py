@@ -23,7 +23,6 @@ class ProviderKeysIn(BaseModel):
     gemini_key: str | None = Field(default=None, description="Google Gemini API key (required to generate).")
     langsmith_key: str | None = Field(default=None, description="LangSmith key for tracing (optional).")
     serp_key: str | None = Field(default=None, description="SERP provider key for discovery (optional).")
-    sendgrid_key: str | None = Field(default=None, description="SendGrid key for sending approval emails (optional).")
 
 
 class AccountOut(BaseModel):
@@ -123,6 +122,13 @@ class RunCreate(BaseModel):
         description="Optional war story / real numbers / contrarian take to weave in (the E-E-A-T layer).",
     )
     auto_approve: bool = Field(default=False, description="Skip the email gate (testing / trusted automation).")
+
+
+class RunDecision(BaseModel):
+    """The human review decision, submitted from the dashboard at the gate."""
+
+    decision: str = Field(description="approve | edit | reject")
+    edits: str | None = Field(default=None, description="Edited markdown body (required for 'edit').")
 
 
 class RunOut(BaseModel):
