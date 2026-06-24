@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
 import type { Site } from "../types";
 import RunsPanel from "./RunsPanel";
@@ -16,11 +16,18 @@ export default function SiteDetail({ site, onSaved, onDeleted }: {
   const [draft, setDraft] = useState<Site>(site);
   const [msg, setMsg] = useState("");
 
+  // Re-sync the editable form whenever the site prop changes (e.g. after a CSV
+  // import returns the updated site) so imported values show up in the fields.
+  useEffect(() => { setDraft(site); }, [site]);
+
   function set<K extends keyof Site>(key: K, value: Site[K]) {
     setDraft({ ...draft, [key]: value });
   }
   function setPrompt(stage: string, value: string) {
     setDraft({ ...draft, custom_prompts: { ...draft.custom_prompts, [stage]: value } });
+  }
+  function setAuthor(field: "name" | "role" | "url", value: string) {
+    setDraft({ ...draft, author: { ...(draft.author ?? {}), [field]: value } });
   }
 
   async function save() {
@@ -31,6 +38,9 @@ export default function SiteDetail({ site, onSaved, onDeleted }: {
         domain: draft.domain,
         brand_voice: draft.brand_voice,
         image_style: draft.image_style,
+        content_type: draft.content_type,
+        default_tags: draft.default_tags,
+        author: draft.author,
         custom_prompts: draft.custom_prompts,
         discovery: draft.discovery,
         schedule: draft.schedule,
@@ -68,6 +78,30 @@ export default function SiteDetail({ site, onSaved, onDeleted }: {
           <Field label="Approval email"><input className="inp" value={draft.approval_email ?? ""} onChange={(e) => set("approval_email", e.target.value)} /></Field>
           <Field label="Brand voice"><textarea className="inp" value={draft.brand_voice ?? ""} onChange={(e) => set("brand_voice", e.target.value)} /></Field>
           <Field label="Image style"><input className="inp" value={draft.image_style ?? ""} onChange={(e) => set("image_style", e.target.value)} /></Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Content type (MDX 'type')">
+              <select className="inp" value={draft.content_type ?? "guide"}
+                onChange={(e) => set("content_type", e.target.value)}>
+                {["guide", "teardown", "explainer", "comparison", "checklist", "opinion", "tutorial"].map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Default tags (comma separated)">
+              <input className="inp" value={(draft.default_tags ?? []).join(", ")}
+                onChange={(e) => set("default_tags", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} />
+            </Field>
+          </div>
+
+          <div>
+            <h3 className="font-medium mb-2">Author (MDX frontmatter byline)</h3>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Name"><input className="inp" value={draft.author?.name ?? ""} onChange={(e) => setAuthor("name", e.target.value)} /></Field>
+              <Field label="Role"><input className="inp" value={draft.author?.role ?? ""} onChange={(e) => setAuthor("role", e.target.value)} /></Field>
+              <Field label="URL"><input className="inp" value={draft.author?.url ?? ""} onChange={(e) => setAuthor("url", e.target.value)} /></Field>
+            </div>
+          </div>
 
           <Field label="Seed topics (comma separated)">
             <input className="inp" value={(draft.discovery.seed_topics || []).join(", ")}
