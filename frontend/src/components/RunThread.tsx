@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api } from "../api";
-import type { Run } from "../types";
+import type { Run, RunResult } from "../types";
 
 const STEPS = [
   { key: "discovery", label: "Discovery", blurb: "Find the best buyer-intent topic" },
@@ -288,29 +288,55 @@ function StageContent({ stage, data }: { stage: string; data: any }) {
 }
 
 function ResultCard({ siteId, runId }: { siteId: string; runId: string }) {
-  const [md, setMd] = useState<string | null>(null);
-  const [title, setTitle] = useState("post");
+  const [result, setResult] = useState<RunResult | null>(null);
   useEffect(() => {
-    api.getResult(siteId, runId).then((r) => {
-      setMd(r.markdown ?? "");
-      setTitle(r.slug ?? "post");
-    });
+    api.getResult(siteId, runId).then(setResult);
   }, [siteId, runId]);
 
-  function download() {
-    const blob = new Blob([md ?? ""], { type: "text/markdown" });
+  function downloadFile(text: string, name: string, mime: string) {
+    const blob = new Blob([text], { type: mime });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${title}.md`;
+    a.download = name;
     a.click();
   }
+
+  const slug = result?.slug ?? "post";
+  const mdx = result?.mdx ?? null;
+  const md = result?.markdown ?? "";
 
   return (
     <div className="rounded-xl border border-green-200 bg-green-50 p-4">
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-green-800">Published draft ready</h3>
-        <button onClick={download} className="rounded-lg bg-green-700 px-3 py-1.5 text-sm text-white">⬇ Download .md</button>
+        <div className="flex gap-2">
+          <button
+            disabled={!mdx}
+            onClick={() => mdx && downloadFile(mdx, result?.mdx_filename ?? `${slug}.mdx`, "text/mdx")}
+            className="rounded-lg bg-green-700 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          >⬇ Download .mdx</button>
+          <button
+            onClick={() => downloadFile(md, `${slug}.md`, "text/markdown")}
+            className="rounded-lg border border-green-700 px-3 py-1.5 text-sm text-green-800"
+          >.md</button>
+        </div>
       </div>
+      {result?.tags && result.tags.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {result.content_type && (
+            <span className="rounded bg-green-200 px-1.5 py-0.5 text-xs text-green-900">{result.content_type}</span>
+          )}
+          {result.tags.map((t) => (
+            <span key={t} className="rounded bg-white px-1.5 py-0.5 text-xs text-green-700">#{t}</span>
+          ))}
+        </div>
+      )}
+      {mdx && (
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm text-green-800">View frontmatter</summary>
+          <pre className="mt-1 overflow-auto rounded bg-white p-2 text-xs text-slate-700">{mdx.split("---")[1]?.trim()}</pre>
+        </details>
+      )}
       {md && <Md text={md} />}
     </div>
   );

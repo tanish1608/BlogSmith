@@ -49,6 +49,58 @@ def first_h1(markdown: str) -> str | None:
     return m.group(1).strip() if m else None
 
 
+def strip_leading_h1(markdown: str) -> tuple[str | None, str]:
+    """Split out the leading H1 (carried into MDX frontmatter as the title).
+
+    Returns ``(title, body)`` where ``body`` is the article with the first H1
+    line removed. If there is no leading H1, ``title`` is None and the body is
+    returned unchanged.
+    """
+    lines = markdown.splitlines()
+    for i, line in enumerate(lines):
+        if not line.strip():
+            continue
+        m = _H1_RE.match(line)
+        if m:
+            rest = lines[i + 1 :]
+            # drop a single blank line immediately after the H1
+            while rest and not rest[0].strip():
+                rest.pop(0)
+            return m.group(1).strip(), "\n".join(rest).strip()
+        break  # first non-blank line isn't an H1 → nothing to strip
+    return None, markdown.strip()
+
+
+_HEADING_RE = re.compile(r"^\s{0,3}#{2,6}\s+\S", re.MULTILINE)
+
+
+def ends_abruptly(markdown: str) -> bool:
+    """Heuristic: does the article stop without a real closing?
+
+    True when the last non-empty line is a heading (the writer dropped the
+    section body), or when the final block of prose sits under an H3/deeper
+    sub-heading — the classic "ends on Step 2 of a list" failure where no
+    conclusion/takeaway/CTA was written.
+    """
+    text = markdown.strip()
+    if not text:
+        return True
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return True
+    # Last non-empty line is itself a heading → section has no body.
+    if re.match(r"^\s{0,3}#{1,6}\s+", lines[-1]):
+        return True
+    # Find the last heading and its level; if the tail lives under an H3+ it is
+    # a sub-section, not a conclusion.
+    last_level = 0
+    for ln in lines:
+        m = re.match(r"^\s{0,3}(#{1,6})\s+", ln)
+        if m:
+            last_level = len(m.group(1))
+    return last_level >= 3
+
+
 def strip_markdown(markdown: str) -> str:
     """Crude plain-text projection for keyword/first-100-word checks."""
     text = _PLACEHOLDER_RE.sub(" ", markdown)

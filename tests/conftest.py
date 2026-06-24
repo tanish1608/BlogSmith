@@ -37,3 +37,12 @@ def client(fake_db):
     from blogsmith.api.main import create_app
 
     return TestClient(create_app())
+
+
+@pytest.fixture
+def patched_runner(monkeypatch):
+    """Swap the real Gemini clients for deterministic fakes during runs."""
+    from tests.fakes import FakeImages, FakeLlm
+
+    monkeypatch.setattr("blogsmith.runner.LlmClient", lambda *a, **k: FakeLlm())
+    monkeypatch.setattr("blogsmith.runner.ImageClient", lambda *a, **k: FakeImages())
