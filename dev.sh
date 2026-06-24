@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run BlogSmith locally: FastAPI backend (:8000) + Vite dashboard (:5173).
-# Both hit your real Firebase project (Firestore + Auth) — no emulator needed.
+# Fully local: SQLite (blogsmith.db) + a media/ folder — no cloud, no auth.
 #
 #   ./dev.sh
 #   → backend:   http://localhost:8000   (API + Swagger at /docs)

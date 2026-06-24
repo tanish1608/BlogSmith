@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "BlogSmith",
-    "description": "Agentic blogging service \u2014 a 9-stage LangGraph pipeline (Discovery \u2192 Research \u2192 Outline \u2192 Draft \u2192 Critique \u2192 human email gate \u2192 Finalize \u2192 Visuals \u2192 Distribute) that writes human-like, SEO-strong posts with Gemini image generation.",
+    "description": "Local agentic blogging service \u2014 a 9-stage LangGraph pipeline (Discovery \u2192 Research \u2192 Outline \u2192 Draft \u2192 Critique \u2192 review gate \u2192 Finalize \u2192 Visuals \u2192 Distribute) that writes human-like, SEO-strong posts with Gemini image generation. SQLite store, no auth, no cloud.",
     "version": "0.1.0"
   },
   "paths": {
@@ -12,7 +12,7 @@
           "tools"
         ],
         "summary": "Health",
-        "description": "Liveness + which service-level integrations are configured.",
+        "description": "Liveness + which integrations are configured.",
         "operationId": "health_health_get",
         "responses": {
           "200": {
@@ -69,12 +69,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/tools/draft": {
@@ -117,12 +112,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/tools/preview-image": {
@@ -165,12 +155,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/account": {
@@ -191,58 +176,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/account/keys": {
-      "put": {
-        "tags": [
-          "account"
-        ],
-        "summary": "Update Keys",
-        "operationId": "update_keys_account_keys_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProviderKeysIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AccountOut"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/sites": {
@@ -267,12 +201,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       },
       "post": {
         "tags": [
@@ -311,12 +240,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/sites/{site_id}": {
@@ -326,11 +250,6 @@
         ],
         "summary": "Get Site",
         "operationId": "get_site_sites__site_id__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "site_id",
@@ -371,11 +290,6 @@
         ],
         "summary": "Update Site",
         "operationId": "update_site_sites__site_id__patch",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "site_id",
@@ -426,11 +340,6 @@
         ],
         "summary": "Delete Site",
         "operationId": "delete_site_sites__site_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "site_id",
@@ -459,6 +368,100 @@
         }
       }
     },
+    "/sites/{site_id}/config.csv": {
+      "get": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Download Config Csv",
+        "description": "Download this site's current config as an editable CSV template.",
+        "operationId": "download_config_csv_sites__site_id__config_csv_get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{site_id}/config-csv": {
+      "post": {
+        "tags": [
+          "sites"
+        ],
+        "summary": "Upload Config Csv",
+        "description": "Apply a config CSV. ``name`` and ``domain`` are locked and never changed.",
+        "operationId": "upload_config_csv_sites__site_id__config_csv_post",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_config_csv_sites__site_id__config_csv_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sites/{site_id}/runs": {
       "post": {
         "tags": [
@@ -466,11 +469,6 @@
         ],
         "summary": "Create Run",
         "operationId": "create_run_sites__site_id__runs_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "site_id",
@@ -521,11 +519,6 @@
         ],
         "summary": "List Runs",
         "operationId": "list_runs_sites__site_id__runs_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "site_id",
@@ -565,6 +558,114 @@
         }
       }
     },
+    "/sites/{site_id}/runs/template.csv": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Download Runs Template",
+        "description": "Download the bulk-topics CSV template (topic, primary_keywords, expert_insights).",
+        "operationId": "download_runs_template_sites__site_id__runs_template_csv_get",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{site_id}/runs/csv": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Create Runs Csv",
+        "description": "Queue one blog run per row of an uploaded topics CSV.",
+        "operationId": "create_runs_csv_sites__site_id__runs_csv_post",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          },
+          {
+            "name": "auto_approve",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Auto Approve"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_runs_csv_sites__site_id__runs_csv_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunOut"
+                  },
+                  "title": "Response Create Runs Csv Sites  Site Id  Runs Csv Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sites/{site_id}/runs/{run_id}": {
       "get": {
         "tags": [
@@ -572,11 +673,6 @@
         ],
         "summary": "Get Run",
         "operationId": "get_run_sites__site_id__runs__run_id__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "site_id",
@@ -629,11 +725,6 @@
         "summary": "Submit Decision",
         "description": "The human review gate, driven from the dashboard.\n\napprove \u2192 finalize \u2192 visuals \u2192 distribute; edit \u2192 same with the edited body;\nreject \u2192 stop. Runs in the background; poll GET to watch progress.",
         "operationId": "submit_decision_sites__site_id__runs__run_id__decision_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "site_id",
@@ -695,11 +786,6 @@
         ],
         "summary": "Get Result",
         "operationId": "get_result_sites__site_id__runs__run_id__result_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "parameters": [
           {
             "name": "site_id",
@@ -751,24 +837,6 @@
         ],
         "summary": "Tick",
         "operationId": "tick_scheduler_tick_post",
-        "parameters": [
-          {
-            "name": "x-scheduler-secret",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Scheduler-Secret"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -777,16 +845,6 @@
                 "schema": {
                   "type": "object",
                   "title": "Response Tick Scheduler Tick Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -839,6 +897,77 @@
           "uid"
         ],
         "title": "AccountOut"
+      },
+      "AuthorConfig": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Display name, e.g. 'Tessera Founder'."
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role",
+            "description": "Title/role, e.g. 'Founder \u00b7 Lead Architect'."
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url",
+            "description": "Author/profile URL, e.g. '/the-lab'."
+          }
+        },
+        "type": "object",
+        "title": "AuthorConfig",
+        "description": "Byline written into the MDX frontmatter (and JSON-LD author)."
+      },
+      "Body_create_runs_csv_sites__site_id__runs_csv_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_create_runs_csv_sites__site_id__runs_csv_post"
+      },
+      "Body_upload_config_csv_sites__site_id__config_csv_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_config_csv_sites__site_id__config_csv_post"
       },
       "CustomPrompts": {
         "properties": {
@@ -1105,49 +1234,6 @@
         ],
         "title": "InternalLink"
       },
-      "ProviderKeysIn": {
-        "properties": {
-          "gemini_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Gemini Key",
-            "description": "Google Gemini API key (required to generate)."
-          },
-          "langsmith_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Langsmith Key",
-            "description": "LangSmith key for tracing (optional)."
-          },
-          "serp_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Serp Key",
-            "description": "SERP provider key for discovery (optional)."
-          }
-        },
-        "type": "object",
-        "title": "ProviderKeysIn",
-        "description": "Keys a user pastes into their profile. All optional; only set ones update."
-      },
       "RunCreate": {
         "properties": {
           "topic": {
@@ -1377,6 +1463,47 @@
             ],
             "title": "Markdown"
           },
+          "mdx": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mdx",
+            "description": "Full .mdx file (frontmatter + body) for the target app."
+          },
+          "mdx_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mdx Filename"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
           "json_ld": {
             "anyOf": [
               {
@@ -1519,6 +1646,24 @@
           "schedule": {
             "$ref": "#/components/schemas/ScheduleConfig"
           },
+          "author": {
+            "$ref": "#/components/schemas/AuthorConfig",
+            "description": "Byline for the MDX frontmatter."
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type",
+            "description": "Default MDX 'type' (guide, teardown, explainer, \u2026).",
+            "default": "guide"
+          },
+          "default_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Default Tags",
+            "description": "Tags always added to this site's posts."
+          },
           "approval_email": {
             "anyOf": [
               {
@@ -1598,6 +1743,24 @@
           },
           "schedule": {
             "$ref": "#/components/schemas/ScheduleConfig"
+          },
+          "author": {
+            "$ref": "#/components/schemas/AuthorConfig",
+            "description": "Byline for the MDX frontmatter."
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type",
+            "description": "Default MDX 'type' (guide, teardown, explainer, \u2026).",
+            "default": "guide"
+          },
+          "default_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Default Tags",
+            "description": "Tags always added to this site's posts."
           },
           "approval_email": {
             "anyOf": [
@@ -1755,6 +1918,41 @@
               }
             ]
           },
+          "author": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthorConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "default_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Tags"
+          },
           "approval_email": {
             "anyOf": [
               {
@@ -1803,12 +2001,6 @@
           "type"
         ],
         "title": "ValidationError"
-      }
-    },
-    "securitySchemes": {
-      "HTTPBearer": {
-        "type": "http",
-        "scheme": "bearer"
       }
     }
   }

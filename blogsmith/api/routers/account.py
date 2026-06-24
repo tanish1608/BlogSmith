@@ -1,42 +1,20 @@
-"""Account router — profile + BYOK provider keys.
+"""Account router — local key status.
 
-Users are created on the Firebase dashboard; this endpoint lazily mirrors them
-into Firestore on first call and lets them store their Gemini (and optional)
-keys, which are encrypted at rest.
+Keys are read from ``.env`` (single local workspace), so this endpoint is
+read-only: it reports which provider keys are configured (masked), letting the
+dashboard show generation readiness.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from blogsmith.accounts import ensure_user, masked_keys, set_keys
-from blogsmith.api.auth import AuthedUser, current_user
-from blogsmith.schemas import AccountOut, ProviderKeysIn
+from blogsmith.accounts import masked_keys
+from blogsmith.schemas import AccountOut
 
 router = APIRouter(prefix="/account", tags=["account"])
 
 
 @router.get("", response_model=AccountOut)
-async def get_account(user: AuthedUser = Depends(current_user)) -> AccountOut:
-    data = ensure_user(user.uid, user.email)
-    return AccountOut(
-        uid=user.uid,
-        email=data.get("email"),
-        plan=data.get("plan", "free"),
-        keys=masked_keys(user.uid),
-    )
-
-
-@router.put("/keys", response_model=AccountOut)
-async def update_keys(
-    payload: ProviderKeysIn, user: AuthedUser = Depends(current_user)
-) -> AccountOut:
-    ensure_user(user.uid, user.email)
-    set_keys(user.uid, payload.model_dump())
-    data = ensure_user(user.uid, user.email)
-    return AccountOut(
-        uid=user.uid,
-        email=data.get("email"),
-        plan=data.get("plan", "free"),
-        keys=masked_keys(user.uid),
-    )
+async def get_account() -> AccountOut:
+    return AccountOut(uid="local", email=None, plan="local", keys=masked_keys())

@@ -1,17 +1,21 @@
-"""Account (BYOK keys) + sites CRUD against the in-memory Firestore fake."""
+"""Account (env key status) + sites CRUD against the local SQLite store."""
 
 from __future__ import annotations
 
 
-def test_account_keys_are_stored_masked_never_plaintext(client):
-    # First read provisions the user.
+def test_account_reports_env_key_status(client, monkeypatch):
+    from blogsmith.config import get_settings
+
+    # No key configured → masked value is None.
+    monkeypatch.setattr(get_settings(), "gemini_api_key", None)
+    monkeypatch.setattr(get_settings(), "fallback_gemini_key", None)
     r = client.get("/account")
     assert r.status_code == 200
     assert r.json()["keys"]["gemini_key"] is None
 
-    r = client.put("/account/keys", json={"gemini_key": "AIzaSECRET12345"})
-    assert r.status_code == 200
-    masked = r.json()["keys"]["gemini_key"]
+    # Key set in env → masked hint, never plaintext.
+    monkeypatch.setattr(get_settings(), "gemini_api_key", "AIzaSECRET12345")
+    masked = client.get("/account").json()["keys"]["gemini_key"]
     assert masked == "••••2345"
     assert "SECRET" not in masked
 

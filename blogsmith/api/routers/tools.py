@@ -1,19 +1,18 @@
 """Tools router — health + stage-test endpoints.
 
-The stage-test endpoints let a user exercise individual pipeline stages from
-Swagger or the dashboard without launching a full run — the CleanCrawl ``/extract``
-/ ``/classify-url`` idea applied to discovery, drafting, and image generation.
+The stage-test endpoints let you exercise individual pipeline stages from Swagger
+or the dashboard without launching a full run — applied to discovery, drafting,
+and image generation. Single local workspace, no auth.
 """
 
 from __future__ import annotations
 
 import base64
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from blogsmith import __version__
-from blogsmith.api.auth import AuthedUser, current_user
 from blogsmith.config import get_settings
 from blogsmith.graph.model import LlmUnavailable
 
@@ -22,17 +21,17 @@ router = APIRouter(tags=["tools"])
 
 @router.get("/health")
 async def health() -> dict:
-    """Liveness + which service-level integrations are configured."""
+    """Liveness + which integrations are configured."""
     s = get_settings()
     return {
         "status": "ok",
         "version": __version__,
         "env": s.app_env,
         "integrations": {
-            "firestore_emulator": bool(s.firestore_emulator_host),
-            "auth_disabled": s.auth_disabled,
+            "db": s.db_path,
+            "gemini": bool(s.gemini_key),
             "langsmith": bool(s.langsmith_api_key),
-            "dispatch": "cloud_run" if s.dispatch_to_cloud_run else "in_process",
+            "scheduler": s.scheduler_enabled,
             "text_model": s.text_model,
             "image_model": s.image_model,
         },
@@ -47,12 +46,12 @@ class DiscoverRequest(BaseModel):
 
 
 @router.post("/tools/discover", tags=["tools"])
-async def discover(req: DiscoverRequest, user: AuthedUser = Depends(current_user)) -> dict:
+async def discover(req: DiscoverRequest) -> dict:
     from blogsmith.discovery import discover as run_discover
     from blogsmith.runner import RunNotFound, build_preview_context
 
     try:
-        ctx = build_preview_context(user.uid, req.site_id)
+        ctx = build_preview_context(req.site_id)
     except RunNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return await run_discover(ctx)
@@ -66,7 +65,7 @@ class DraftRequest(BaseModel):
 
 
 @router.post("/tools/draft", tags=["tools"])
-async def draft_preview(req: DraftRequest, user: AuthedUser = Depends(current_user)) -> dict:
+async def draft_preview(req: DraftRequest) -> dict:
     from blogsmith.draft import draft as run_draft
     from blogsmith.outline import outline as run_outline
     from blogsmith.research import research as run_research
@@ -74,7 +73,6 @@ async def draft_preview(req: DraftRequest, user: AuthedUser = Depends(current_us
 
     try:
         ctx = build_preview_context(
-            user.uid,
             req.site_id,
             run_input={"topic": req.topic, "keyword": req.keyword, "expert_insights": req.expert_insights},
         )
@@ -97,10 +95,10 @@ class ImageRequest(BaseModel):
 
 
 @router.post("/tools/preview-image", tags=["tools"])
-async def preview_image(req: ImageRequest, user: AuthedUser = Depends(current_user)) -> dict:
+async def preview_image(req: ImageRequest) -> dict:
     from blogsmith.runner import build_preview_context
 
-    ctx = build_preview_context(user.uid)
+    ctx = build_preview_context()
     if not ctx.images.available:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
