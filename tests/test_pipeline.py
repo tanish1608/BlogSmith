@@ -22,7 +22,7 @@ SITE = {
 
 def _ctx(auto_approve: bool) -> RunContext:
     return RunContext(
-        uid="u1", site_id="s1", run_id="r1", site=SITE,
+        site_id="s1", run_id="r1", site=SITE,
         run_input={
             "topic": "DPDPA compliance checklist",
             "keyword": "dpdpa compliance checklist",

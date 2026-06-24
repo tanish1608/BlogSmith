@@ -1,20 +1,9 @@
 """HTTP flow: create site → create run → pipeline completes → fetch result.
 
-The scheduler tick fan-out is tested with all_sites/dispatch patched to the fake DB.
+Uses the shared ``client`` (temp SQLite) and ``patched_runner`` fixtures.
 """
 
 from __future__ import annotations
-
-import pytest
-
-from blogsmith.config import get_settings
-from tests.fakes import FakeImages, FakeLlm
-
-
-@pytest.fixture
-def patched_runner(monkeypatch):
-    monkeypatch.setattr("blogsmith.runner.LlmClient", lambda *a, **k: FakeLlm())
-    monkeypatch.setattr("blogsmith.runner.ImageClient", lambda *a, **k: FakeImages())
 
 
 def _make_site(client) -> str:
@@ -76,7 +65,7 @@ def test_decision_rejected_when_not_awaiting(client, patched_runner):
     assert r.status_code == 409
 
 
-def test_scheduler_tick_fans_out(client, fake_db, monkeypatch):
+def test_scheduler_tick_fans_out(client, monkeypatch):
     site_id = _make_site(client)
     # Enable a daily slot that's already past today.
     client.patch(f"/sites/{site_id}", json={
@@ -84,25 +73,13 @@ def test_scheduler_tick_fans_out(client, fake_db, monkeypatch):
                      "timezone": "UTC", "count_per_run": 3},
     })
 
-    # Scan the fake DB (no collection-group support) + don't actually execute runs.
-    def fake_all_sites():
-        from blogsmith.firestore_db import sites_col
-        for snap in sites_col("dev-user").stream():
-            yield "dev-user", snap.id, snap.to_dict()
+    # Don't actually execute the queued runs.
+    monkeypatch.setattr("blogsmith.scheduler_local.dispatch_run", lambda *a, **k: "noop")
 
-    monkeypatch.setattr("blogsmith.firestore_db.all_sites", fake_all_sites)
-    monkeypatch.setattr("blogsmith.api.routers.scheduler.dispatch_run", lambda *a, **k: "noop")
-
-    secret = get_settings().scheduler_secret
-    r = client.post("/scheduler/tick", headers={"X-Scheduler-Secret": secret})
+    r = client.post("/scheduler/tick")
     assert r.status_code == 200
     assert r.json()["enqueued"] == 3
 
     # A second tick the same day must not refire the slot.
-    r = client.post("/scheduler/tick", headers={"X-Scheduler-Secret": secret})
+    r = client.post("/scheduler/tick")
     assert r.json()["enqueued"] == 0
-
-
-def test_scheduler_tick_rejects_bad_secret(client):
-    r = client.post("/scheduler/tick", headers={"X-Scheduler-Secret": "wrong"})
-    assert r.status_code == 403

@@ -45,7 +45,7 @@ def test_discovery_heuristic_ranks_high_intent_first():
 @pytest.mark.asyncio
 async def test_discovery_manual_topic_shortcircuits():
     ctx = RunContext(
-        uid="u", site_id="s", run_id="r",
+        site_id="s", run_id="r",
         site={"discovery": {"source": "seed", "seed_topics": []}},
         run_input={"topic": "My exact topic", "keyword": "kw"},
         llm=FakeLlm(), images=FakeImages(), persist_enabled=False,

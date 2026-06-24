@@ -1,21 +1,19 @@
 """Sites router — one config per website/domain.
 
 A site holds the brand voice, per-stage custom prompts, pillar/cluster map,
-internal-link map, discovery config, and publishing schedule. Blogs (runs) are
-created under a site and inherit all of it.
+internal-link map, discovery config, author, and publishing schedule. Blogs
+(runs) are created under a site and inherit all of it. Single local workspace,
+no auth.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
-from google.cloud import firestore
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile, status
 
-from blogsmith.accounts import ensure_user
-from blogsmith.api.auth import AuthedUser, current_user
+from blogsmith import store
 from blogsmith.csv_io import config_to_csv, parse_config_csv
-from blogsmith.firestore_db import site_doc, sites_col
 from blogsmith.schemas import SiteIn, SiteOut, SiteUpdate
 
 router = APIRouter(prefix="/sites", tags=["sites"])
@@ -29,54 +27,44 @@ async def _read_csv(file: UploadFile) -> str:
         raise HTTPException(status_code=422, detail="File must be UTF-8 CSV text.") from None
 
 
-def _to_site_out(doc_id: str, data: dict[str, Any]) -> SiteOut:
-    return SiteOut(id=doc_id, **data)
+def _to_site_out(data: dict[str, Any]) -> SiteOut:
+    return SiteOut(**data)
 
 
-def _load_or_404(uid: str, site_id: str):
-    snap = site_doc(uid, site_id).get()
-    if not snap.exists:
+def _load_or_404(site_id: str) -> dict[str, Any]:
+    site = store.get_site(site_id)
+    if site is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found.")
-    return snap
+    return site
 
 
 @router.post("", response_model=SiteOut, status_code=status.HTTP_201_CREATED)
-async def create_site(payload: SiteIn, user: AuthedUser = Depends(current_user)) -> SiteOut:
-    ensure_user(user.uid, user.email)
-    data = payload.model_dump()
-    ref = sites_col(user.uid).document()
-    ref.set({**data, "created_at": firestore.SERVER_TIMESTAMP, "updated_at": firestore.SERVER_TIMESTAMP})
-    return _to_site_out(ref.id, ref.get().to_dict() or data)
+async def create_site(payload: SiteIn) -> SiteOut:
+    return _to_site_out(store.create_site(payload.model_dump()))
 
 
 @router.get("", response_model=list[SiteOut])
-async def list_sites(user: AuthedUser = Depends(current_user)) -> list[SiteOut]:
-    return [_to_site_out(d.id, d.to_dict() or {}) for d in sites_col(user.uid).stream()]
+async def list_sites() -> list[SiteOut]:
+    return [_to_site_out(s) for s in store.list_sites()]
 
 
 @router.get("/{site_id}", response_model=SiteOut)
-async def get_site(site_id: str, user: AuthedUser = Depends(current_user)) -> SiteOut:
-    snap = _load_or_404(user.uid, site_id)
-    return _to_site_out(snap.id, snap.to_dict() or {})
+async def get_site(site_id: str) -> SiteOut:
+    return _to_site_out(_load_or_404(site_id))
 
 
 @router.patch("/{site_id}", response_model=SiteOut)
-async def update_site(
-    site_id: str, payload: SiteUpdate, user: AuthedUser = Depends(current_user)
-) -> SiteOut:
-    _load_or_404(user.uid, site_id)
+async def update_site(site_id: str, payload: SiteUpdate) -> SiteOut:
+    _load_or_404(site_id)
     updates = payload.model_dump(exclude_unset=True)
-    if updates:
-        updates["updated_at"] = firestore.SERVER_TIMESTAMP
-        site_doc(user.uid, site_id).update(updates)
-    snap = site_doc(user.uid, site_id).get()
-    return _to_site_out(snap.id, snap.to_dict() or {})
+    site = store.update_site(site_id, updates) if updates else store.get_site(site_id)
+    return _to_site_out(site)  # type: ignore[arg-type]
 
 
 @router.delete("/{site_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
-async def delete_site(site_id: str, user: AuthedUser = Depends(current_user)) -> Response:
-    _load_or_404(user.uid, site_id)
-    site_doc(user.uid, site_id).delete()
+async def delete_site(site_id: str) -> Response:
+    _load_or_404(site_id)
+    store.delete_site(site_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -84,10 +72,9 @@ async def delete_site(site_id: str, user: AuthedUser = Depends(current_user)) ->
 
 
 @router.get("/{site_id}/config.csv")
-async def download_config_csv(site_id: str, user: AuthedUser = Depends(current_user)) -> Response:
+async def download_config_csv(site_id: str) -> Response:
     """Download this site's current config as an editable CSV template."""
-    snap = _load_or_404(user.uid, site_id)
-    data = snap.to_dict() or {}
+    data = _load_or_404(site_id)
     csv_text = config_to_csv(data)
     slug = (data.get("domain") or data.get("name") or "site").replace("/", "-")
     return Response(
@@ -98,14 +85,9 @@ async def download_config_csv(site_id: str, user: AuthedUser = Depends(current_u
 
 
 @router.post("/{site_id}/config-csv", response_model=SiteOut)
-async def upload_config_csv(
-    site_id: str,
-    file: UploadFile = File(...),
-    user: AuthedUser = Depends(current_user),
-) -> SiteOut:
+async def upload_config_csv(site_id: str, file: UploadFile = File(...)) -> SiteOut:
     """Apply a config CSV. ``name`` and ``domain`` are locked and never changed."""
-    snap = _load_or_404(user.uid, site_id)
-    current = snap.to_dict() or {}
+    current = _load_or_404(site_id)
     parsed = parse_config_csv(await _read_csv(file))
     if not parsed:
         raise HTTPException(status_code=422, detail="No recognizable config fields in the CSV.")
@@ -120,7 +102,4 @@ async def upload_config_csv(
             merged[key] = value
 
     updates = SiteUpdate(**merged).model_dump(exclude_unset=True)
-    updates["updated_at"] = firestore.SERVER_TIMESTAMP
-    site_doc(user.uid, site_id).update(updates)
-    snap = site_doc(user.uid, site_id).get()
-    return _to_site_out(snap.id, snap.to_dict() or {})
+    return _to_site_out(store.update_site(site_id, updates))  # type: ignore[arg-type]

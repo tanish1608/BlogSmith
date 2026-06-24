@@ -52,8 +52,6 @@ export const api = {
   health: () => req<any>("/health"),
 
   getAccount: () => req<Account>("/account"),
-  setKeys: (keys: Record<string, string>) =>
-    req<Account>("/account/keys", { method: "PUT", body: JSON.stringify(keys) }),
 
   listSites: () => req<Site[]>("/sites"),
   createSite: (site: Partial<Site>) =>

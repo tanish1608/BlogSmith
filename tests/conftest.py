@@ -1,7 +1,6 @@
 """Shared test fixtures.
 
-- Forces dev auth + a stable encryption key + console email before any app import.
-- Swaps Firestore for the in-memory :class:`FakeClient` so no JVM/emulator is needed.
+Each test gets a fresh SQLite store in a temp file (no cloud, no auth, no Java).
 """
 
 from __future__ import annotations
@@ -9,29 +8,30 @@ from __future__ import annotations
 import os
 
 import pytest
-from cryptography.fernet import Fernet
 
-# Must be set before blogsmith.config builds Settings.
+# Set before blogsmith.config builds Settings.
 os.environ.setdefault("APP_ENV", "dev")
-os.environ.setdefault("AUTH_DISABLED", "true")
-os.environ.setdefault("KEY_ENCRYPTION_KEY", Fernet.generate_key().decode())
-os.environ.setdefault("EMAIL_PROVIDER", "console")
 
 
 @pytest.fixture
-def fake_db(monkeypatch):
-    """Patch the Firestore client with a fresh in-memory fake for each test."""
-    from tests.fake_firestore import FakeClient
+def store_db(tmp_path, monkeypatch):
+    """Point the SQLite store at a throwaway file for the duration of a test."""
+    from blogsmith import store
+    from blogsmith.config import get_settings
 
-    client = FakeClient()
-    monkeypatch.setattr("blogsmith.firestore_db.db", lambda: client)
-    monkeypatch.setattr("blogsmith.firestore_db.init_firebase", lambda: None)
-    return client
+    settings = get_settings()
+    monkeypatch.setattr(settings, "db_path", str(tmp_path / "test.db"))
+    monkeypatch.setattr(settings, "scheduler_enabled", False)
+    monkeypatch.setattr(settings, "images_dir", str(tmp_path / "media"))
+    store.close()
+    store.init_db()
+    yield store
+    store.close()
 
 
 @pytest.fixture
-def client(fake_db):
-    """A TestClient wired to the fake Firestore."""
+def client(store_db):
+    """A TestClient wired to the temp SQLite store."""
     from fastapi.testclient import TestClient
 
     from blogsmith.api.main import create_app

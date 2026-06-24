@@ -4,12 +4,10 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-os.environ.setdefault("AUTH_DISABLED", "true")
 
 from blogsmith.api.main import create_app  # noqa: E402
 

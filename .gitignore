@@ -9,18 +9,18 @@ venv/
 
 langsmith-data/
 outputs/
+
+# Local data store + generated images
+*.db
+*.db-wal
+*.db-shm
+media/
+
 # Env / secrets
 .env
 *.key
 sa.json
 service-account*.json
-
-# Firebase emulator
-.firebase/
-firebase-debug.log
-firestore-debug.log
-ui-debug.log
-storage-debug.log
 
 # Frontend
 frontend/node_modules/

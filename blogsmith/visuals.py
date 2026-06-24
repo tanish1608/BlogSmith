@@ -13,7 +13,7 @@ import logging
 from blogsmith.graph.context import RunContext
 from blogsmith.graph.image_model import mermaid_fallback
 from blogsmith.markdown_utils import parse_image_placeholders, replace_placeholder
-from blogsmith.storage import upload_image
+from blogsmith.storage import save_image
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +39,7 @@ async def generate_visuals(ctx: RunContext, markdown: str, images_spec: list[dic
         image = await ctx.images.generate(prompt, style=ctx.image_style)
         if image is not None:
             try:
-                url = upload_image(
-                    uid=ctx.uid,
+                url = save_image(
                     site_id=ctx.site_id,
                     run_id=ctx.run_id,
                     index=ph.index,
@@ -50,8 +49,8 @@ async def generate_visuals(ctx: RunContext, markdown: str, images_spec: list[dic
                 out_md = replace_placeholder(out_md, ph, f"![{alt}]({url})")
                 produced.append({"index": ph.index, "type": img_type, "url": url, "alt": alt})
                 continue
-            except Exception as exc:  # noqa: BLE001 — upload failed, try fallback
-                logger.warning("Image upload failed for placeholder %s: %s", ph.index, exc)
+            except Exception as exc:  # noqa: BLE001 — save failed, try fallback
+                logger.warning("Image save failed for placeholder %s: %s", ph.index, exc)
 
         # Fallback path: Mermaid for diagrams, otherwise drop the placeholder.
         mermaid = await mermaid_fallback(ctx.llm, img_type, prompt)

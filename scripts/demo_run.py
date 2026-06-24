@@ -63,7 +63,7 @@ def _build_ctx(topic: str, key: str | None) -> RunContext:
         llm, images = FakeLlm(), FakeImages()
         print("→ No Gemini key found — using deterministic fakes.")
     return RunContext(
-        uid="demo", site_id="demo", run_id="demo",
+        site_id="demo", run_id="demo",
         site=SITE, run_input=run_input,
         llm=llm, images=images, auto_approve=True, persist_enabled=False,
     )
