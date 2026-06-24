@@ -100,6 +100,11 @@ Rules:
 - Plan 1-3 visual placements (chart, flowchart, diagram, or photo) where a visual genuinely
   aids comprehension — note the TYPE and what it should show.
 - Identify where the human expert's insight (war story / real numbers / contrarian take) should land.
+- The LAST section MUST be a dedicated conclusion that delivers the key takeaway and a concrete
+  next step (give it a real H2 heading like "The bottom line" or "Where to start" — never literally
+  "Conclusion"/"Summary"). The outline must never end on an H3 sub-section or a numbered step.
+- If a section presents numbered steps or a list, include EVERY step — never stop at a partial list
+  (e.g. don't list "Step 1, Step 2" when the section logically needs more).
 
 Return ONLY JSON:
 {
@@ -139,7 +144,19 @@ Output format:
   [[IMAGE: <type> | <concise description of what to show> | <draft alt text>]]
 - Where the outline specifies an internal link, use a normal Markdown link with the given URL.
 - Include a primary keyword in the H1 and within the first 100 words, naturally.
-- End with a genuinely useful closing (a next step or sharp takeaway), NOT a generic summary.
+- For a single high-value warning, compliance note, or key insight you want to pull out of the
+  flow, you MAY use one MDX callout (and at most two per article):
+  <Callout title="SHORT UPPERCASE LABEL">One or two sentences.</Callout>
+- For a code or config example, use a fenced block with a filename title:
+  ```ts title="example.ts"
+
+COMPLETENESS — the most important rule:
+- Write the FULL article through to the outline's final concluding section. Every section in the
+  outline must be present with real body text. Never stop early.
+- The article MUST end with that concluding section: a sharp takeaway plus one concrete next step,
+  in normal prose. NEVER end on a heading, an H3 sub-section, or a numbered step (e.g. do not let
+  "Step 2" be the last thing on the page). If the outline lists steps, write a closing paragraph
+  after the last step that ties the piece together. Do NOT write a generic "In conclusion" summary.
 
 Output ONLY the Markdown article. No preamble, no explanation.
 """
@@ -177,7 +194,12 @@ Tasks:
 - Title tag (<= 60 chars, primary keyword near the front, compelling).
 - Meta description (<= 155 chars, includes the keyword, earns the click).
 - URL slug (short, hyphenated, keyword-focused).
-- JSON-LD schema (Article or BlogPosting) as a real JSON object.
+- 3-6 lowercase topical tags for the post (single words or short phrases).
+- A content "type" describing the post format. Choose ONE of:
+  guide | teardown | explainer | comparison | checklist | opinion | tutorial.
+- JSON-LD schema (Article or BlogPosting) as a real JSON object. Use the headline and keywords only.
+  Do NOT invent an author, publisher, logo URL, or publish date — those are filled in from the
+  site's verified configuration. Omit author/publisher/date fields entirely.
 - For each [[IMAGE:...]] placeholder, produce a precise IMAGE GENERATION PROMPT and final alt text.
 - Confirm internal links present in the body.
 
@@ -186,7 +208,9 @@ Return ONLY JSON:
   "title": "...",
   "meta_description": "...",
   "slug": "...",
-  "json_ld": { ...valid schema.org Article JSON-LD... },
+  "tags": ["...", "..."],
+  "type": "guide | teardown | explainer | comparison | checklist | opinion | tutorial",
+  "json_ld": { ...valid schema.org Article JSON-LD, no author/publisher/date... },
   "images": [
     {"placeholder_index": 0, "type": "chart | flowchart | diagram | photo",
      "generation_prompt": "detailed prompt for the image model", "alt_text": "..."}

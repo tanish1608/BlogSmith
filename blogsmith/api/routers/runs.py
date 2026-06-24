@@ -9,12 +9,23 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Response,
+    UploadFile,
+    status,
+)
 from google.cloud import firestore
 
 from blogsmith.api.auth import AuthedUser, current_user
 from blogsmith.api.jobs import dispatch_run
+from blogsmith.csv_io import parse_runs_csv, runs_template_csv
 from blogsmith.firestore_db import run_doc, runs_col, site_doc
+from blogsmith.mdx import mdx_filename, to_mdx
 from blogsmith.models import ExpertDecision, RunStatus
 from blogsmith.runner import execute_resume
 from blogsmith.schemas import RunCreate, RunDecision, RunOut, RunResult
@@ -25,6 +36,26 @@ router = APIRouter(prefix="/sites/{site_id}/runs", tags=["runs"])
 def _require_site(uid: str, site_id: str) -> None:
     if not site_doc(uid, site_id).get().exists:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found.")
+
+
+def _enqueue_run(
+    uid: str, site_id: str, payload: RunCreate, background: BackgroundTasks
+) -> RunOut:
+    """Write a queued run document and dispatch Phase A."""
+    ref = runs_col(uid, site_id).document()
+    ref.set(
+        {
+            "status": "queued",
+            "input": payload.model_dump(),
+            "topic": payload.topic,
+            "keyword": payload.keyword,
+            "stages": {},
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "updated_at": firestore.SERVER_TIMESTAMP,
+        }
+    )
+    dispatch_run(uid, site_id, ref.id, background)
+    return _run_out(site_id, ref.id, ref.get().to_dict() or {})
 
 
 def _run_out(site_id: str, run_id: str, data: dict[str, Any]) -> RunOut:
@@ -49,20 +80,49 @@ async def create_run(
     user: AuthedUser = Depends(current_user),
 ) -> RunOut:
     _require_site(user.uid, site_id)
-    ref = runs_col(user.uid, site_id).document()
-    ref.set(
-        {
-            "status": "queued",
-            "input": payload.model_dump(),
-            "topic": payload.topic,
-            "keyword": payload.keyword,
-            "stages": {},
-            "created_at": firestore.SERVER_TIMESTAMP,
-            "updated_at": firestore.SERVER_TIMESTAMP,
-        }
+    return _enqueue_run(user.uid, site_id, payload, background)
+
+
+@router.get("/template.csv")
+async def download_runs_template(
+    site_id: str, user: AuthedUser = Depends(current_user)
+) -> Response:
+    """Download the bulk-topics CSV template (topic, primary_keywords, expert_insights)."""
+    _require_site(user.uid, site_id)
+    return Response(
+        content=runs_template_csv(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="blogs-template.csv"'},
     )
-    dispatch_run(user.uid, site_id, ref.id, background)
-    return _run_out(site_id, ref.id, ref.get().to_dict() or {})
+
+
+@router.post("/csv", response_model=list[RunOut], status_code=status.HTTP_202_ACCEPTED)
+async def create_runs_csv(
+    site_id: str,
+    background: BackgroundTasks,
+    file: UploadFile = File(...),
+    auto_approve: bool = False,
+    user: AuthedUser = Depends(current_user),
+) -> list[RunOut]:
+    """Queue one blog run per row of an uploaded topics CSV."""
+    _require_site(user.uid, site_id)
+    try:
+        text = (await file.read()).decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=422, detail="File must be UTF-8 CSV text.") from None
+
+    rows = parse_runs_csv(text)
+    if not rows:
+        raise HTTPException(
+            status_code=422,
+            detail="No topics found. The CSV needs a 'topic' column with at least one row.",
+        )
+
+    created: list[RunOut] = []
+    for row in rows:
+        payload = RunCreate(**row, auto_approve=auto_approve)
+        created.append(_enqueue_run(user.uid, site_id, payload, background))
+    return created
 
 
 @router.get("", response_model=list[RunOut])
@@ -121,6 +181,23 @@ async def get_result(site_id: str, run_id: str, user: AuthedUser = Depends(curre
     final = stages.get("final", {}) or {}
     visuals = stages.get("visuals", {}) or {}
     distribution = stages.get("distribution", {}) or {}
+
+    body = visuals.get("markdown") or final.get("body_markdown")
+    site_snap = site_doc(user.uid, site_id).get()
+    site = site_snap.to_dict() if site_snap.exists else {}
+
+    mdx_doc = filename = None
+    if body:
+        mdx_doc = to_mdx(
+            body,
+            final,
+            site,
+            published_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            keyword=data.get("keyword"),
+        )
+        filename = mdx_filename(final, body)
+
     return RunResult(
         id=run_id,
         site_id=site_id,
@@ -128,7 +205,11 @@ async def get_result(site_id: str, run_id: str, user: AuthedUser = Depends(curre
         title=final.get("title"),
         meta_description=final.get("meta_description"),
         slug=final.get("slug"),
-        markdown=visuals.get("markdown") or final.get("body_markdown"),
+        markdown=body,
+        mdx=mdx_doc,
+        mdx_filename=filename,
+        tags=final.get("tags", []),
+        content_type=final.get("type"),
         json_ld=final.get("json_ld"),
         images=visuals.get("images", []),
         linkedin_thread=distribution.get("linkedin_thread", []),

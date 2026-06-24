@@ -62,6 +62,7 @@ export default function SiteDetail({ site, onSaved, onDeleted }: {
 
       {tab === "config" && (
         <div className="space-y-5 rounded-xl border border-slate-200 bg-white p-4">
+          <ConfigCsvBox site={site} onImported={onSaved} />
           <Field label="Name"><input className="inp" value={draft.name} onChange={(e) => set("name", e.target.value)} /></Field>
           <Field label="Domain"><input className="inp" value={draft.domain} onChange={(e) => set("domain", e.target.value)} /></Field>
           <Field label="Approval email"><input className="inp" value={draft.approval_email ?? ""} onChange={(e) => set("approval_email", e.target.value)} /></Field>
@@ -134,5 +135,45 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <span className="text-sm font-medium capitalize">{label}</span>
       {children}
     </label>
+  );
+}
+
+function ConfigCsvBox({ site, onImported }: { site: Site; onImported: (s: Site) => void }) {
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-upload of the same file
+    if (!file) return;
+    setBusy(true); setMsg("");
+    try {
+      const updated = await api.uploadConfigCsv(site.id, file);
+      onImported(updated);
+      setMsg("Config imported. Name and domain were left unchanged.");
+    } catch (err) {
+      setMsg(String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-medium">Config as CSV</span>
+        <button onClick={() => api.downloadConfigCsv(site.id)}
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5">⬇ Download template</button>
+        <label className="cursor-pointer rounded-md bg-slate-900 px-3 py-1.5 text-white">
+          {busy ? "Importing…" : "⬆ Upload CSV"}
+          <input type="file" accept=".csv,text/csv" className="hidden" onChange={onUpload} disabled={busy} />
+        </label>
+      </div>
+      <p className="mt-2 text-xs text-slate-500">
+        Download your current config, edit the values, and re-upload. <strong>Name and domain are
+        locked</strong> — edits to those rows are ignored.
+      </p>
+      {msg && <p className="mt-1 text-xs text-slate-700">{msg}</p>}
+    </div>
   );
 }

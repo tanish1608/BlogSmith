@@ -9,15 +9,24 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from google.cloud import firestore
 
 from blogsmith.accounts import ensure_user
 from blogsmith.api.auth import AuthedUser, current_user
+from blogsmith.csv_io import config_to_csv, parse_config_csv
 from blogsmith.firestore_db import site_doc, sites_col
 from blogsmith.schemas import SiteIn, SiteOut, SiteUpdate
 
 router = APIRouter(prefix="/sites", tags=["sites"])
+
+
+async def _read_csv(file: UploadFile) -> str:
+    raw = await file.read()
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=422, detail="File must be UTF-8 CSV text.") from None
 
 
 def _to_site_out(doc_id: str, data: dict[str, Any]) -> SiteOut:
@@ -69,3 +78,49 @@ async def delete_site(site_id: str, user: AuthedUser = Depends(current_user)) ->
     _load_or_404(user.uid, site_id)
     site_doc(user.uid, site_id).delete()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ── Config as CSV (download current → edit → re-upload) ───────────────────────
+
+
+@router.get("/{site_id}/config.csv")
+async def download_config_csv(site_id: str, user: AuthedUser = Depends(current_user)) -> Response:
+    """Download this site's current config as an editable CSV template."""
+    snap = _load_or_404(user.uid, site_id)
+    data = snap.to_dict() or {}
+    csv_text = config_to_csv(data)
+    slug = (data.get("domain") or data.get("name") or "site").replace("/", "-")
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{slug}-config.csv"'},
+    )
+
+
+@router.post("/{site_id}/config-csv", response_model=SiteOut)
+async def upload_config_csv(
+    site_id: str,
+    file: UploadFile = File(...),
+    user: AuthedUser = Depends(current_user),
+) -> SiteOut:
+    """Apply a config CSV. ``name`` and ``domain`` are locked and never changed."""
+    snap = _load_or_404(user.uid, site_id)
+    current = snap.to_dict() or {}
+    parsed = parse_config_csv(await _read_csv(file))
+    if not parsed:
+        raise HTTPException(status_code=422, detail="No recognizable config fields in the CSV.")
+
+    # Shallow-merge nested objects onto current config so a partial sheet never
+    # wipes sibling fields (e.g. updating author.name keeps author.url).
+    merged: dict[str, Any] = {}
+    for key, value in parsed.items():
+        if isinstance(value, dict) and isinstance(current.get(key), dict):
+            merged[key] = {**current[key], **value}
+        else:
+            merged[key] = value
+
+    updates = SiteUpdate(**merged).model_dump(exclude_unset=True)
+    updates["updated_at"] = firestore.SERVER_TIMESTAMP
+    site_doc(user.uid, site_id).update(updates)
+    snap = site_doc(user.uid, site_id).get()
+    return _to_site_out(snap.id, snap.to_dict() or {})

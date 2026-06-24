@@ -54,6 +54,14 @@ class CustomPrompts(BaseModel):
     distribute: str | None = None
 
 
+class AuthorConfig(BaseModel):
+    """Byline written into the MDX frontmatter (and JSON-LD author)."""
+
+    name: str | None = Field(default=None, description="Display name, e.g. 'Tessera Founder'.")
+    role: str | None = Field(default=None, description="Title/role, e.g. 'Founder · Lead Architect'.")
+    url: str | None = Field(default=None, description="Author/profile URL, e.g. '/the-lab'.")
+
+
 class InternalLink(BaseModel):
     title: str
     url: str
@@ -86,6 +94,10 @@ class SiteIn(BaseModel):
     internal_links: list[InternalLink] = Field(default_factory=list)
     discovery: DiscoveryConfig = Field(default_factory=DiscoveryConfig)
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
+    # ── Publishing / MDX output ──
+    author: AuthorConfig = Field(default_factory=AuthorConfig, description="Byline for the MDX frontmatter.")
+    content_type: str = Field(default="guide", description="Default MDX 'type' (guide, teardown, explainer, …).")
+    default_tags: list[str] = Field(default_factory=list, description="Tags always added to this site's posts.")
     approval_email: str | None = Field(default=None, description="Where draft approval emails go (defaults to account email).")
 
 
@@ -101,6 +113,9 @@ class SiteUpdate(BaseModel):
     internal_links: list[InternalLink] | None = None
     discovery: DiscoveryConfig | None = None
     schedule: ScheduleConfig | None = None
+    author: AuthorConfig | None = None
+    content_type: str | None = None
+    default_tags: list[str] | None = None
     approval_email: str | None = None
 
 
@@ -154,6 +169,10 @@ class RunResult(BaseModel):
     meta_description: str | None = None
     slug: str | None = None
     markdown: str | None = None
+    mdx: str | None = Field(default=None, description="Full .mdx file (frontmatter + body) for the target app.")
+    mdx_filename: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    content_type: str | None = None
     json_ld: dict[str, Any] | None = None
     images: list[dict[str, Any]] = Field(default_factory=list)
     linkedin_thread: list[str] = Field(default_factory=list)

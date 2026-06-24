@@ -16,6 +16,8 @@ export default function RunsPanel({ siteId }: { siteId: string }) {
   const [autoApprove, setAutoApprove] = useState(false);
   const [openRun, setOpenRun] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState("");
 
   async function refresh() {
     try {
@@ -48,6 +50,22 @@ export default function RunsPanel({ siteId }: { siteId: string }) {
     }
   }
 
+  async function uploadCsv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBulkBusy(true); setBulkMsg("");
+    try {
+      const created = await api.uploadRunsCsv(siteId, file, autoApprove);
+      setBulkMsg(`Queued ${created.length} blog run${created.length === 1 ? "" : "s"}.`);
+      await refresh();
+    } catch (err) {
+      setBulkMsg(String(err));
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   if (openRun) {
     return <RunThread siteId={siteId} runId={openRun} onBack={() => { setOpenRun(null); refresh(); }} />;
   }
@@ -71,6 +89,26 @@ export default function RunsPanel({ siteId }: { siteId: string }) {
         </label>
         <button onClick={create} className="rounded-lg bg-blue-600 px-4 py-2 text-white">Generate blog</button>
         {msg && <p className="text-sm text-red-600">{msg}</p>}
+
+        <div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-medium">Bulk upload (CSV)</span>
+            <button onClick={() => api.downloadRunsTemplate(siteId)}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5">⬇ Template</button>
+            <label className="cursor-pointer rounded-md bg-slate-900 px-3 py-1.5 text-white">
+              {bulkBusy ? "Queuing…" : "⬆ Upload topics"}
+              <input type="file" accept=".csv,text/csv" className="hidden" disabled={bulkBusy} onChange={uploadCsv} />
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-slate-600">
+              <input type="checkbox" checked={autoApprove} onChange={(e) => setAutoApprove(e.target.checked)} />
+              auto-approve all
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Columns: <code>topic, primary_keywords, expert_insights</code>. One blog is queued per row.
+          </p>
+          {bulkMsg && <p className="mt-1 text-xs text-slate-700">{bulkMsg}</p>}
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white">

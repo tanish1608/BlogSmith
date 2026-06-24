@@ -22,8 +22,11 @@ from blogsmith.graph.blog_graph import run_pipeline  # noqa: E402
 from blogsmith.graph.context import RunContext  # noqa: E402
 from blogsmith.graph.image_model import ImageClient  # noqa: E402
 from blogsmith.graph.model import LlmBudget, LlmClient  # noqa: E402
+from blogsmith.markdown_utils import ends_abruptly  # noqa: E402
+from blogsmith.mdx import mdx_filename, to_mdx  # noqa: E402
 
 SITE = {
+    "name": "Demo Labs",
     "domain": "demo.example",
     "brand_voice": "Direct, expert, concrete. No fluff.",
     "custom_prompts": {},
@@ -31,6 +34,8 @@ SITE = {
     "pillar_cluster_map": {"data-privacy": ["dpdpa", "consent", "data fiduciary"]},
     "internal_links": [],
     "discovery": {"source": "seed", "seed_topics": ["DPDPA compliance"]},
+    "author": {"name": "Demo Founder", "role": "Founder · Lead Architect", "url": "/the-lab"},
+    "content_type": "teardown",
 }
 
 
@@ -78,8 +83,22 @@ async def main() -> int:
     print("TITLE:", final.get("title"))
     print("META :", final.get("meta_description"))
     print("SLUG :", final.get("slug"))
+    print("TAGS :", final.get("tags"))
+    print("TYPE :", final.get("type"))
     print("=" * 70)
-    print((state.get("visuals", {}) or {}).get("markdown", "")[:2000])
+
+    body = (state.get("visuals", {}) or {}).get("markdown", "")
+    print("ENDS ABRUPTLY:", ends_abruptly(body))
+
+    mdx = to_mdx(body, final, SITE, keyword=args.topic)
+    out_dir = Path(__file__).resolve().parents[1] / "outputs"
+    out_dir.mkdir(exist_ok=True)
+    out_path = out_dir / mdx_filename(final, body)
+    out_path.write_text(mdx)
+    print(f"WROTE: {out_path}")
+
+    print("\n--- MDX frontmatter ---")
+    print("\n".join(mdx.splitlines()[: mdx.splitlines().index("---", 1) + 1]))
     print("\n--- LinkedIn thread ---")
     for i, post in enumerate((state.get("distribution", {}) or {}).get("linkedin_thread", []), 1):
         print(f"{i}. {post}")

@@ -44,6 +44,9 @@ export interface Site {
   internal_links: { title: string; url: string; keywords: string[] }[];
   discovery: DiscoveryConfig;
   schedule: ScheduleConfig;
+  author?: { name?: string | null; role?: string | null; url?: string | null };
+  content_type?: string | null;
+  default_tags?: string[];
   approval_email?: string | null;
 }
 
@@ -65,6 +68,10 @@ export interface RunResult {
   meta_description?: string | null;
   slug?: string | null;
   markdown?: string | null;
+  mdx?: string | null;
+  mdx_filename?: string | null;
+  tags?: string[];
+  content_type?: string | null;
   json_ld?: any;
   images: any[];
   linkedin_thread: string[];
