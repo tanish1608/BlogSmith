@@ -5,6 +5,8 @@ Uses the shared ``client`` (temp SQLite) and ``patched_runner`` fixtures.
 
 from __future__ import annotations
 
+from tests.conftest import wait_for_status
+
 
 def _make_site(client) -> str:
     r = client.post("/sites", json={
@@ -26,10 +28,8 @@ def test_create_run_executes_and_returns_result(client, patched_runner):
     assert r.status_code == 202
     run_id = r.json()["id"]
 
-    # Background task runs during the TestClient request cycle → run completes.
-    r = client.get(f"/sites/{site_id}/runs/{run_id}")
-    assert r.status_code == 200
-    assert r.json()["status"] == "done"
+    # The run dispatches as a concurrent asyncio task → wait for it to finish.
+    assert wait_for_status(client, site_id, run_id, "done") == "done"
 
     r = client.get(f"/sites/{site_id}/runs/{run_id}/result")
     assert r.status_code == 200
@@ -49,12 +49,12 @@ def test_review_gate_decision_resumes_run(client, patched_runner):
     run_id = r.json()["id"]
 
     # Phase A ran in the background → paused at the review gate.
-    assert client.get(f"/sites/{site_id}/runs/{run_id}").json()["status"] == "awaiting_expert"
+    assert wait_for_status(client, site_id, run_id, "awaiting_expert") == "awaiting_expert"
 
     # Approve from the dashboard → resumes to done.
     r = client.post(f"/sites/{site_id}/runs/{run_id}/decision", json={"decision": "approve"})
     assert r.status_code == 202
-    assert client.get(f"/sites/{site_id}/runs/{run_id}").json()["status"] == "done"
+    assert wait_for_status(client, site_id, run_id, "done") == "done"
 
 
 def test_decision_rejected_when_not_awaiting(client, patched_runner):

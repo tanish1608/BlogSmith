@@ -31,12 +31,34 @@ def store_db(tmp_path, monkeypatch):
 
 @pytest.fixture
 def client(store_db):
-    """A TestClient wired to the temp SQLite store."""
+    """A TestClient wired to the temp SQLite store.
+
+    Entered as a context manager so the app runs the lifespan and keeps a single
+    persistent event loop for the client's lifetime — matching real uvicorn, where
+    dispatched runs (asyncio tasks) keep progressing across requests.
+    """
     from fastapi.testclient import TestClient
 
     from blogsmith.api.main import create_app
 
-    return TestClient(create_app())
+    with TestClient(create_app()) as c:
+        yield c
+
+
+def wait_for_status(client, site_id: str, run_id: str, target: str, timeout: float = 10.0) -> str:
+    """Poll a run until it reaches ``target`` (or any terminal status), giving the
+    background asyncio task time to progress on the app's loop."""
+    import time
+
+    terminal = {"done", "failed", "rejected", target}
+    deadline = time.monotonic() + timeout
+    status = ""
+    while time.monotonic() < deadline:
+        status = client.get(f"/sites/{site_id}/runs/{run_id}").json()["status"]
+        if status in terminal:
+            return status
+        time.sleep(0.05)
+    return status
 
 
 @pytest.fixture

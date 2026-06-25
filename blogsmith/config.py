@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     image_model: str = Field(default="gemini-2.0-flash-exp-image-generation")
     llm_run_budget: int = Field(default=60, description="Max LLM calls per blog run.")
 
+    # ── Concurrency ───────────────────────────────────────────────────────────
+    max_concurrent_runs: int = Field(
+        default=3, description="How many blog runs may execute at once (Gemini rate-limit guard)."
+    )
+
     # ── Local scheduler ───────────────────────────────────────────────────────
     scheduler_enabled: bool = Field(default=True, description="Run the in-process cadence scheduler.")
     scheduler_interval_seconds: int = Field(default=60, description="How often the scheduler ticks.")
