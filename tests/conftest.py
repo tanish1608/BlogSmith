@@ -23,6 +23,9 @@ def store_db(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "db_path", str(tmp_path / "test.db"))
     monkeypatch.setattr(settings, "scheduler_enabled", False)
     monkeypatch.setattr(settings, "images_dir", str(tmp_path / "media"))
+    # Isolate tests from any real publishing config in the developer's .env.
+    monkeypatch.setattr(settings, "publish_enabled", False)
+    monkeypatch.setattr(settings, "field_notes_token", None)
     store.close()
     store.init_db()
     yield store

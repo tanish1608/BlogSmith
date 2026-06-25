@@ -20,7 +20,7 @@ from blogsmith.prompts.defaults import (
 )
 
 # Bump when the authored defaults change materially (audit / reproducibility).
-PROMPT_VERSION = "2026-06-23.1"
+PROMPT_VERSION = "2026-06-25.1"
 
 
 def build_system_prompt(

@@ -98,7 +98,7 @@ def test_publish_requires_configuration(client, patched_runner):
 def test_publish_success(client, patched_runner, monkeypatch):
     captured = {}
 
-    async def fake_publish(mdx: str) -> dict:
+    async def fake_publish(mdx: str, *, url=None, token=None) -> dict:
         captured["mdx"] = mdx
         return {"ok": True, "slug": "dpdpa", "url": "https://site/field-notes/dpdpa", "draft": False}
 
@@ -116,6 +116,35 @@ def test_publish_success(client, patched_runner, monkeypatch):
     assert r.status_code == 200
     assert r.json()["url"].endswith("/dpdpa")
     assert captured["mdx"].startswith("---")  # a real .mdx (frontmatter) was sent
+
+
+def test_publish_uses_site_config(client, patched_runner, monkeypatch):
+    captured = {}
+
+    async def fake_publish(mdx: str, *, url=None, token=None) -> dict:
+        captured["url"] = url
+        captured["token"] = token
+        return {"ok": True, "slug": "x", "url": "https://acme.example/field-notes/x"}
+
+    monkeypatch.setattr("blogsmith.api.routers.runs.publish_mdx", fake_publish)
+
+    site_id = _make_site(client)
+    # Per-site target — global publishing stays off.
+    client.patch(f"/sites/{site_id}", json={"publish": {
+        "enabled": True, "api_url": "https://acme.example/api/field-notes", "api_token": "site-tok-9999",
+    }})
+    # The token must come back masked, never raw.
+    assert client.get(f"/sites/{site_id}").json()["publish"]["api_token"] == "••••9999"
+
+    r = client.post(f"/sites/{site_id}/runs", json={
+        "topic": "DPDPA compliance checklist", "keyword": "dpdpa", "auto_approve": True,
+    })
+    run_id = r.json()["id"]
+    assert wait_for_status(client, site_id, run_id, "done") == "done"
+
+    assert client.post(f"/sites/{site_id}/runs/{run_id}/publish").status_code == 200
+    assert captured["url"] == "https://acme.example/api/field-notes"
+    assert captured["token"] == "site-tok-9999"  # the real stored token, not the mask
 
 
 def test_scheduler_tick_fans_out(client, monkeypatch):

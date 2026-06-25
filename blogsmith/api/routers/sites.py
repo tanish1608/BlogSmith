@@ -27,8 +27,34 @@ async def _read_csv(file: UploadFile) -> str:
         raise HTTPException(status_code=422, detail="File must be UTF-8 CSV text.") from None
 
 
+_MASK = "••••"
+
+
+def _mask_publish(data: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy with the publish token masked — never ship the raw token."""
+    pub = dict(data.get("publish") or {})
+    token = pub.get("api_token")
+    if token:
+        pub["api_token"] = _MASK + str(token)[-4:] if len(str(token)) > 4 else _MASK
+    out = dict(data)
+    out["publish"] = pub
+    return out
+
+
 def _to_site_out(data: dict[str, Any]) -> SiteOut:
-    return SiteOut(**data)
+    return SiteOut(**_mask_publish(data))
+
+
+def _preserve_publish_token(site_id: str, updates: dict[str, Any]) -> dict[str, Any]:
+    """If an update carries a blank or masked publish token, keep the stored one."""
+    pub = updates.get("publish")
+    if not isinstance(pub, dict):
+        return updates
+    token = pub.get("api_token")
+    if not token or str(token).startswith(_MASK):
+        current = (store.get_site(site_id) or {}).get("publish") or {}
+        pub["api_token"] = current.get("api_token")
+    return updates
 
 
 def _load_or_404(site_id: str) -> dict[str, Any]:
@@ -56,7 +82,7 @@ async def get_site(site_id: str) -> SiteOut:
 @router.patch("/{site_id}", response_model=SiteOut)
 async def update_site(site_id: str, payload: SiteUpdate) -> SiteOut:
     _load_or_404(site_id)
-    updates = payload.model_dump(exclude_unset=True)
+    updates = _preserve_publish_token(site_id, payload.model_dump(exclude_unset=True))
     site = store.update_site(site_id, updates) if updates else store.get_site(site_id)
     return _to_site_out(site)  # type: ignore[arg-type]
 
