@@ -30,4 +30,6 @@ def _mask(value: str | None) -> str | None:
 
 def masked_keys() -> dict[str, str | None]:
     """Display-safe map of which keys are configured (never the plaintext)."""
-    return {field: _mask(value) for field, value in get_keys().items()}
+    masked = {field: _mask(value) for field, value in get_keys().items()}
+    masked["field_notes_token"] = _mask(get_settings().field_notes_token)
+    return masked

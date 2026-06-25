@@ -779,6 +779,110 @@
         }
       }
     },
+    "/sites/{site_id}/runs/{run_id}/cancel": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Cancel Run Endpoint",
+        "description": "Stop a run that's queued, in progress, or awaiting review.",
+        "operationId": "cancel_run_endpoint_sites__site_id__runs__run_id__cancel_post",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sites/{site_id}/runs/{run_id}/publish": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Publish Run",
+        "description": "Push the finished post's .mdx to the Field Notes API.",
+        "operationId": "publish_run_sites__site_id__runs__run_id__publish_post",
+        "parameters": [
+          {
+            "name": "site_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Site Id"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/sites/{site_id}/runs/{run_id}/result": {
       "get": {
         "tags": [
@@ -890,6 +994,12 @@
             },
             "type": "object",
             "title": "Keys"
+          },
+          "publish_enabled": {
+            "type": "boolean",
+            "title": "Publish Enabled",
+            "description": "True when Field Notes publishing is configured.",
+            "default": false
           }
         },
         "type": "object",
@@ -1233,6 +1343,53 @@
           "url"
         ],
         "title": "InternalLink"
+      },
+      "PublishOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "title": "PublishOut",
+        "description": "Result of pushing a post to the Field Notes API."
       },
       "RunCreate": {
         "properties": {

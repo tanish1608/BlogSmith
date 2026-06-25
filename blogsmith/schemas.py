@@ -31,6 +31,18 @@ class AccountOut(BaseModel):
     plan: str = "free"
     # Masked hints only — never the real keys.
     keys: dict[str, str | None] = Field(default_factory=dict)
+    publish_enabled: bool = Field(
+        default=False, description="True when Field Notes publishing is configured."
+    )
+
+
+class PublishOut(BaseModel):
+    """Result of pushing a post to the Field Notes API."""
+
+    ok: bool
+    slug: str | None = None
+    url: str | None = None
+    draft: bool | None = None
 
 
 # ── Site configuration ────────────────────────────────────────────────────────

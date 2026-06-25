@@ -3,6 +3,14 @@ export interface Account {
   email: string | null;
   plan: string;
   keys: Record<string, string | null>;
+  publish_enabled: boolean;
+}
+
+export interface PublishResult {
+  ok: boolean;
+  slug?: string | null;
+  url?: string | null;
+  draft?: boolean | null;
 }
 
 export interface CustomPrompts {

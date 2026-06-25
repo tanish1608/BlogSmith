@@ -27,7 +27,12 @@ images, API keys from **`.env`**. No cloud, no auth, no Firebase.
 - **The prompts are the product** — authored default system prompts per stage that each
   site layers its own per-domain custom prompts and brand voice on top of.
 - **CSV in/out** — download/edit/upload a site's config as CSV (name + domain locked), and
-  bulk-queue many topics from one CSV.
+  bulk-queue many topics from one CSV (staged — nothing runs until you click *Generate*).
+- **Concurrent runs** — blogs execute in parallel (capped by `MAX_CONCURRENT_RUNS`), and each
+  run's images generate concurrently. Cancel any run mid-flight; approve/download/publish a
+  run right from its card.
+- **One-click publish** — push a finished `.mdx` to your site's Field Notes API (enable with
+  `PUBLISH_ENABLED` + `FIELD_NOTES_TOKEN`; see `docs/field-notes-api.md`).
 - **Gemini image generation** — the Visuals stage renders each planned image into the local
   media folder; diagrams fall back to **Mermaid** when image generation is unavailable.
 - **Local scheduler** — an in-process scheduler fires due cadences (e.g. *10 blogs, 9am daily*)

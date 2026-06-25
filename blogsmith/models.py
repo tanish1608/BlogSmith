@@ -43,11 +43,17 @@ class RunStatus(StrEnum):
     DISTRIBUTING = "distributing"
     DONE = "done"
     REJECTED = "rejected"
+    CANCELLED = "cancelled"  # stopped by the user mid-run
     FAILED = "failed"
 
 
 # Statuses from which a run is considered finished (no further processing).
-TERMINAL_STATUSES = {RunStatus.DONE, RunStatus.REJECTED, RunStatus.FAILED}
+TERMINAL_STATUSES = {
+    RunStatus.DONE,
+    RunStatus.REJECTED,
+    RunStatus.CANCELLED,
+    RunStatus.FAILED,
+}
 
 
 class ExpertDecision(StrEnum):

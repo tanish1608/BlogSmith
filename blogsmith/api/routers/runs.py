@@ -20,12 +20,15 @@ from fastapi import (
 )
 
 from blogsmith import store
-from blogsmith.api.jobs import dispatch_run
+from blogsmith.api.jobs import cancel_run, dispatch_run
 from blogsmith.csv_io import parse_runs_csv, runs_template_csv
 from blogsmith.mdx import mdx_filename, to_mdx
-from blogsmith.models import ExpertDecision, RunStatus
+from blogsmith.models import TERMINAL_STATUSES, ExpertDecision, RunStatus
+from blogsmith.publish import PublishError, PublishNotConfigured, publish_mdx
 from blogsmith.runner import execute_resume
-from blogsmith.schemas import RunCreate, RunDecision, RunOut, RunResult
+from blogsmith.schemas import PublishOut, RunCreate, RunDecision, RunOut, RunResult
+
+_TERMINAL = {s.value for s in TERMINAL_STATUSES}
 
 router = APIRouter(prefix="/sites/{site_id}/runs", tags=["runs"])
 
@@ -147,6 +150,71 @@ async def submit_decision(
     return _run_out(run)
 
 
+def _build_mdx(site_id: str, run: dict) -> tuple[str | None, str | None]:
+    """Assemble the full .mdx (frontmatter + body) for a run, or (None, None)."""
+    stages = run.get("stages", {})
+    final = stages.get("final", {}) or {}
+    visuals = stages.get("visuals", {}) or {}
+    body = visuals.get("markdown") or final.get("body_markdown")
+    if not body:
+        return None, None
+    site = store.get_site(site_id) or {}
+    mdx_doc = to_mdx(
+        body,
+        final,
+        site,
+        published_at=run.get("created_at"),
+        updated_at=run.get("updated_at"),
+        keyword=run.get("keyword"),
+    )
+    return mdx_doc, mdx_filename(final, body)
+
+
+@router.post("/{run_id}/cancel", response_model=RunOut, status_code=status.HTTP_202_ACCEPTED)
+async def cancel_run_endpoint(site_id: str, run_id: str) -> RunOut:
+    """Stop a run that's queued, in progress, or awaiting review."""
+    run = store.get_run(site_id, run_id)
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.")
+    if run.get("status") in _TERMINAL:
+        raise HTTPException(status_code=409, detail="Run has already finished.")
+
+    cancel_run(run_id)  # cancel the live task if one is in flight
+    store.update_run(site_id, run_id, {"status": RunStatus.CANCELLED.value})
+    return _run_out(store.get_run(site_id, run_id) or run)
+
+
+@router.post("/{run_id}/publish", response_model=PublishOut)
+async def publish_run(site_id: str, run_id: str) -> PublishOut:
+    """Push the finished post's .mdx to the Field Notes API."""
+    run = store.get_run(site_id, run_id)
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.")
+    if run.get("status") != RunStatus.DONE.value:
+        raise HTTPException(status_code=409, detail="Only a finished run can be published.")
+
+    mdx_doc, _ = _build_mdx(site_id, run)
+    if not mdx_doc:
+        raise HTTPException(status_code=409, detail="This run has no .mdx to publish.")
+
+    try:
+        data = await publish_mdx(mdx_doc)
+    except PublishNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except PublishError as exc:
+        detail = str(exc)
+        if exc.details:
+            detail = f"{detail} — {'; '.join(exc.details)}"
+        raise HTTPException(status_code=502, detail=detail) from exc
+
+    return PublishOut(
+        ok=bool(data.get("ok", True)),
+        slug=data.get("slug"),
+        url=data.get("url"),
+        draft=data.get("draft"),
+    )
+
+
 @router.get("/{run_id}/result", response_model=RunResult)
 async def get_result(site_id: str, run_id: str) -> RunResult:
     run = store.get_run(site_id, run_id)
@@ -158,19 +226,7 @@ async def get_result(site_id: str, run_id: str) -> RunResult:
     distribution = stages.get("distribution", {}) or {}
 
     body = visuals.get("markdown") or final.get("body_markdown")
-    site = store.get_site(site_id) or {}
-
-    mdx_doc = filename = None
-    if body:
-        mdx_doc = to_mdx(
-            body,
-            final,
-            site,
-            published_at=run.get("created_at"),
-            updated_at=run.get("updated_at"),
-            keyword=run.get("keyword"),
-        )
-        filename = mdx_filename(final, body)
+    mdx_doc, filename = _build_mdx(site_id, run)
 
     return RunResult(
         id=run_id,

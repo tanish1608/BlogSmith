@@ -9,7 +9,7 @@ venv/
 
 langsmith-data/
 outputs/
-
+docs/
 # Local data store + generated images
 *.db
 *.db-wal

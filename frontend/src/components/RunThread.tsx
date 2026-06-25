@@ -24,12 +24,19 @@ const TERMINAL = new Set(["done", "rejected", "failed"]);
 
 type StepState = "done" | "active" | "paused" | "pending" | "error" | "rejected";
 
-export default function RunThread({ siteId, runId, onBack }: {
-  siteId: string; runId: string; onBack: () => void;
+export default function RunThread({ siteId, runId, onBack, publishEnabled = false }: {
+  siteId: string; runId: string; onBack: () => void; publishEnabled?: boolean;
 }) {
   const [run, setRun] = useState<Run | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [err, setErr] = useState("");
+  const [cancelMsg, setCancelMsg] = useState("");
+
+  async function cancel() {
+    setCancelMsg("Cancelling…");
+    try { await api.cancelRun(siteId, runId); setCancelMsg("Cancelled."); }
+    catch (e) { setCancelMsg(String(e)); }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -91,8 +98,17 @@ export default function RunThread({ siteId, runId, onBack }: {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="text-sm text-slate-500 hover:text-slate-800">← Back to runs</button>
-        <StatusPill status={run.status} />
+        <div className="flex items-center gap-2">
+          {!TERMINAL.has(run.status) && (
+            <button onClick={cancel}
+              className="rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
+              ✕ Cancel run
+            </button>
+          )}
+          <StatusPill status={run.status} />
+        </div>
       </div>
+      {cancelMsg && <p className="text-right text-xs text-slate-500">{cancelMsg}</p>}
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between">
@@ -144,7 +160,7 @@ export default function RunThread({ siteId, runId, onBack }: {
         })}
       </ol>
 
-      {run.status === "done" && <ResultCard siteId={siteId} runId={runId} />}
+      {run.status === "done" && <ResultCard siteId={siteId} runId={runId} publishEnabled={publishEnabled} />}
     </div>
   );
 }
@@ -287,11 +303,27 @@ function StageContent({ stage, data }: { stage: string; data: any }) {
   return <pre className="overflow-auto text-xs">{JSON.stringify(data, null, 2)}</pre>;
 }
 
-function ResultCard({ siteId, runId }: { siteId: string; runId: string }) {
+function ResultCard({ siteId, runId, publishEnabled }: {
+  siteId: string; runId: string; publishEnabled: boolean;
+}) {
   const [result, setResult] = useState<RunResult | null>(null);
+  const [pubMsg, setPubMsg] = useState("");
+  const [pubBusy, setPubBusy] = useState(false);
   useEffect(() => {
     api.getResult(siteId, runId).then(setResult);
   }, [siteId, runId]);
+
+  async function publish() {
+    setPubBusy(true); setPubMsg("");
+    try {
+      const r = await api.publishRun(siteId, runId);
+      setPubMsg(r.url ? `Published → ${r.url}${r.draft ? " (draft)" : ""}` : "Published.");
+    } catch (e) {
+      setPubMsg(String(e));
+    } finally {
+      setPubBusy(false);
+    }
+  }
 
   function downloadFile(text: string, name: string, mime: string) {
     const blob = new Blob([text], { type: mime });
@@ -319,8 +351,16 @@ function ResultCard({ siteId, runId }: { siteId: string; runId: string }) {
             onClick={() => downloadFile(md, `${slug}.md`, "text/markdown")}
             className="rounded-lg border border-green-700 px-3 py-1.5 text-sm text-green-800"
           >.md</button>
+          {publishEnabled && (
+            <button
+              disabled={pubBusy || !mdx}
+              onClick={publish}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            >{pubBusy ? "Publishing…" : "↗ Publish"}</button>
+          )}
         </div>
       </div>
+      {pubMsg && <p className="mt-2 break-all text-xs text-slate-700">{pubMsg}</p>}
       {result?.tags && result.tags.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {result.content_type && (
