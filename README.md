@@ -159,12 +159,17 @@ and the row doubles as the resume checkpoint.
 stateDiagram-v2
     [*] --> queued
     queued --> discovering
-    discovering --> researching --> outlining --> drafting --> critiquing
+    discovering --> researching
+    researching --> outlining
+    outlining --> drafting
+    drafting --> critiquing
     critiquing --> awaiting_expert: review gate
     critiquing --> finalizing: auto-approve
     awaiting_expert --> finalizing: approve / edit
     awaiting_expert --> rejected: reject
-    finalizing --> generating_images --> distributing --> done
+    finalizing --> generating_images
+    generating_images --> distributing
+    distributing --> done
 
     queued --> cancelled: cancel
     discovering --> cancelled: cancel
