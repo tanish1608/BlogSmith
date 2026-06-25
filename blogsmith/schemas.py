@@ -74,6 +74,15 @@ class AuthorConfig(BaseModel):
     url: str | None = Field(default=None, description="Author/profile URL, e.g. '/the-lab'.")
 
 
+class PublishConfig(BaseModel):
+    """Per-site Field Notes publishing target. Each site/app can point at a
+    different endpoint with its own token (overrides the global .env default)."""
+
+    enabled: bool = Field(default=False, description="Publish this site's posts to its own endpoint.")
+    api_url: str | None = Field(default=None, description="Field Notes endpoint for this site.")
+    api_token: str | None = Field(default=None, description="Bearer token (write-only; returned masked).")
+
+
 class InternalLink(BaseModel):
     title: str
     url: str
@@ -110,6 +119,7 @@ class SiteIn(BaseModel):
     author: AuthorConfig = Field(default_factory=AuthorConfig, description="Byline for the MDX frontmatter.")
     content_type: str = Field(default="guide", description="Default MDX 'type' (guide, teardown, explainer, …).")
     default_tags: list[str] = Field(default_factory=list, description="Tags always added to this site's posts.")
+    publish: PublishConfig = Field(default_factory=PublishConfig, description="Per-site publishing target.")
     approval_email: str | None = Field(default=None, description="Where draft approval emails go (defaults to account email).")
 
 
@@ -128,6 +138,7 @@ class SiteUpdate(BaseModel):
     author: AuthorConfig | None = None
     content_type: str | None = None
     default_tags: list[str] | None = None
+    publish: PublishConfig | None = None
     approval_email: str | None = None
 
 

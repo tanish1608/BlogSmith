@@ -1,7 +1,15 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
-import type { Site } from "../types";
+import type { PublishConfig, Site } from "../types";
 import RunsPanel from "./RunsPanel";
+
+/** Drop the masked token so saving doesn't overwrite the stored one with "••••". */
+function publishPatch(p?: PublishConfig): PublishConfig {
+  const base: PublishConfig = { enabled: !!p?.enabled, api_url: p?.api_url ?? null };
+  const tok = p?.api_token;
+  if (tok && !tok.startsWith("••••")) base.api_token = tok;
+  return base;
+}
 
 const PROMPT_STAGES = [
   "discovery", "research", "outline", "draft", "critique", "finalize", "visuals", "distribute",
@@ -29,6 +37,9 @@ export default function SiteDetail({ site, onSaved, onDeleted }: {
   function setAuthor(field: "name" | "role" | "url", value: string) {
     setDraft({ ...draft, author: { ...(draft.author ?? {}), [field]: value } });
   }
+  function setPublish(field: "enabled" | "api_url" | "api_token", value: string | boolean) {
+    setDraft({ ...draft, publish: { enabled: false, ...(draft.publish ?? {}), [field]: value } });
+  }
 
   async function save() {
     setMsg("");
@@ -44,6 +55,7 @@ export default function SiteDetail({ site, onSaved, onDeleted }: {
         custom_prompts: draft.custom_prompts,
         discovery: draft.discovery,
         schedule: draft.schedule,
+        publish: publishPatch(draft.publish),
         approval_email: draft.approval_email,
       });
       onSaved(updated);
@@ -68,7 +80,7 @@ export default function SiteDetail({ site, onSaved, onDeleted }: {
         </div>
       </div>
 
-      {tab === "runs" && <RunsPanel siteId={site.id} />}
+      {tab === "runs" && <RunsPanel site={site} />}
 
       {tab === "config" && (
         <div className="space-y-5 rounded-xl border border-slate-200 bg-white p-4">
@@ -100,6 +112,29 @@ export default function SiteDetail({ site, onSaved, onDeleted }: {
               <Field label="Name"><input className="inp" value={draft.author?.name ?? ""} onChange={(e) => setAuthor("name", e.target.value)} /></Field>
               <Field label="Role"><input className="inp" value={draft.author?.role ?? ""} onChange={(e) => setAuthor("role", e.target.value)} /></Field>
               <Field label="URL"><input className="inp" value={draft.author?.url ?? ""} onChange={(e) => setAuthor("url", e.target.value)} /></Field>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-medium mb-2">Publishing (Field Notes API)</h3>
+            <p className="text-xs text-slate-500 mb-2">
+              Per-app target. When enabled, finished posts publish to this endpoint with this token
+              (overrides the global <code>.env</code> default). The token is stored locally and shown masked.
+            </p>
+            <label className="flex items-center gap-2 text-sm mb-2">
+              <input type="checkbox" checked={!!draft.publish?.enabled}
+                onChange={(e) => setPublish("enabled", e.target.checked)} />
+              Enable publishing for this site
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="API URL">
+                <input className="inp" placeholder="https://your-site/api/field-notes"
+                  value={draft.publish?.api_url ?? ""} onChange={(e) => setPublish("api_url", e.target.value)} />
+              </Field>
+              <Field label="API token">
+                <input className="inp" type="password" placeholder="leave blank to keep current"
+                  value={draft.publish?.api_token ?? ""} onChange={(e) => setPublish("api_token", e.target.value)} />
+              </Field>
             </div>
           </div>
 

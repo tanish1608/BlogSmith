@@ -837,7 +837,7 @@
           "runs"
         ],
         "summary": "Publish Run",
-        "description": "Push the finished post's .mdx to the Field Notes API.",
+        "description": "Push the finished post's .mdx to the Field Notes API (per-site target, else .env).",
         "operationId": "publish_run_sites__site_id__runs__run_id__publish_post",
         "parameters": [
           {
@@ -1344,6 +1344,43 @@
         ],
         "title": "InternalLink"
       },
+      "PublishConfig": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Publish this site's posts to its own endpoint.",
+            "default": false
+          },
+          "api_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Url",
+            "description": "Field Notes endpoint for this site."
+          },
+          "api_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Token",
+            "description": "Bearer token (write-only; returned masked)."
+          }
+        },
+        "type": "object",
+        "title": "PublishConfig",
+        "description": "Per-site Field Notes publishing target. Each site/app can point at a\ndifferent endpoint with its own token (overrides the global .env default)."
+      },
       "PublishOut": {
         "properties": {
           "ok": {
@@ -1821,6 +1858,10 @@
             "title": "Default Tags",
             "description": "Tags always added to this site's posts."
           },
+          "publish": {
+            "$ref": "#/components/schemas/PublishConfig",
+            "description": "Per-site publishing target."
+          },
           "approval_email": {
             "anyOf": [
               {
@@ -1918,6 +1959,10 @@
             "type": "array",
             "title": "Default Tags",
             "description": "Tags always added to this site's posts."
+          },
+          "publish": {
+            "$ref": "#/components/schemas/PublishConfig",
+            "description": "Per-site publishing target."
           },
           "approval_email": {
             "anyOf": [
@@ -2109,6 +2154,16 @@
               }
             ],
             "title": "Default Tags"
+          },
+          "publish": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublishConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "approval_email": {
             "anyOf": [

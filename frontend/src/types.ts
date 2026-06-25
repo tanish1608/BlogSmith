@@ -55,7 +55,14 @@ export interface Site {
   author?: { name?: string | null; role?: string | null; url?: string | null };
   content_type?: string | null;
   default_tags?: string[];
+  publish?: PublishConfig;
   approval_email?: string | null;
+}
+
+export interface PublishConfig {
+  enabled: boolean;
+  api_url?: string | null;
+  api_token?: string | null; // masked on read; send a new value to change it
 }
 
 export interface Run {
@@ -65,6 +72,8 @@ export interface Run {
   topic?: string | null;
   keyword?: string | null;
   error?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
   stages: Record<string, any>;
 }
 

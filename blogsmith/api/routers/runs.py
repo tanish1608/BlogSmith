@@ -21,10 +21,16 @@ from fastapi import (
 
 from blogsmith import store
 from blogsmith.api.jobs import cancel_run, dispatch_run
+from blogsmith.config import get_settings
 from blogsmith.csv_io import parse_runs_csv, runs_template_csv
 from blogsmith.mdx import mdx_filename, to_mdx
 from blogsmith.models import TERMINAL_STATUSES, ExpertDecision, RunStatus
-from blogsmith.publish import PublishError, PublishNotConfigured, publish_mdx
+from blogsmith.publish import (
+    PublishError,
+    PublishNotConfigured,
+    publish_mdx,
+    upload_assets_and_rewrite,
+)
 from blogsmith.runner import execute_resume
 from blogsmith.schemas import PublishOut, RunCreate, RunDecision, RunOut, RunResult
 
@@ -184,9 +190,20 @@ async def cancel_run_endpoint(site_id: str, run_id: str) -> RunOut:
     return _run_out(store.get_run(site_id, run_id) or run)
 
 
+def _publish_target(site: dict) -> tuple[str | None, str | None]:
+    """Resolve (url, token): the site's own publishing config wins, else the .env default."""
+    pub = site.get("publish") or {}
+    if pub.get("enabled") and pub.get("api_token"):
+        return (pub.get("api_url") or get_settings().field_notes_url), pub.get("api_token")
+    s = get_settings()
+    if s.publishing_ready:
+        return s.field_notes_url, s.field_notes_token
+    return None, None
+
+
 @router.post("/{run_id}/publish", response_model=PublishOut)
 async def publish_run(site_id: str, run_id: str) -> PublishOut:
-    """Push the finished post's .mdx to the Field Notes API."""
+    """Push the finished post's .mdx to the Field Notes API (per-site target, else .env)."""
     run = store.get_run(site_id, run_id)
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found.")
@@ -197,8 +214,15 @@ async def publish_run(site_id: str, run_id: str) -> PublishOut:
     if not mdx_doc:
         raise HTTPException(status_code=409, detail="This run has no .mdx to publish.")
 
+    url, token = _publish_target(store.get_site(site_id) or {})
+    slug = (run.get("stages", {}).get("final") or {}).get("slug")
+
     try:
-        data = await publish_mdx(mdx_doc)
+        # Host the post's images first, then publish the MDX pointing at the
+        # returned absolute URLs (the API rejects relative /media paths).
+        if token:
+            mdx_doc = await upload_assets_and_rewrite(mdx_doc, base_url=url, token=token, slug=slug)
+        data = await publish_mdx(mdx_doc, url=url, token=token)
     except PublishNotConfigured as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except PublishError as exc:
