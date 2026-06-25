@@ -46,6 +46,18 @@ class Settings(BaseSettings):
         default=3, description="How many blog runs may execute at once (Gemini rate-limit guard)."
     )
 
+    # ── Publishing (Field Notes API) ──────────────────────────────────────────
+    publish_enabled: bool = Field(
+        default=False, description="Allow pushing finished .mdx posts to the Field Notes API."
+    )
+    field_notes_url: str = Field(
+        default="https://tessera-web-qilhoreu6q-el.a.run.app/api/field-notes",
+        description="Field Notes publish endpoint (POST .mdx).",
+    )
+    field_notes_token: str | None = Field(
+        default=None, description="Bearer token for the Field Notes API."
+    )
+
     # ── Local scheduler ───────────────────────────────────────────────────────
     scheduler_enabled: bool = Field(default=True, description="Run the in-process cadence scheduler.")
     scheduler_interval_seconds: int = Field(default=60, description="How often the scheduler ticks.")
@@ -58,6 +70,11 @@ class Settings(BaseSettings):
     def gemini_key(self) -> str | None:
         """The effective Gemini key (primary env var, then the alias)."""
         return self.gemini_api_key or self.fallback_gemini_key
+
+    @property
+    def publishing_ready(self) -> bool:
+        """Publishing is usable only when enabled AND a token is present."""
+        return self.publish_enabled and bool(self.field_notes_token)
 
 
 @lru_cache

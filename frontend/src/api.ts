@@ -1,5 +1,5 @@
 import { getToken } from "./auth";
-import type { Account, Run, RunResult, Site } from "./types";
+import type { Account, PublishResult, Run, RunResult, Site } from "./types";
 
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getToken();
@@ -80,6 +80,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ decision, edits }),
     }),
+  cancelRun: (siteId: string, runId: string) =>
+    req<Run>(`/sites/${siteId}/runs/${runId}/cancel`, { method: "POST" }),
+  publishRun: (siteId: string, runId: string) =>
+    req<PublishResult>(`/sites/${siteId}/runs/${runId}/publish`, { method: "POST" }),
 
   discover: (siteId: string) =>
     req<any>("/tools/discover", { method: "POST", body: JSON.stringify({ site_id: siteId }) }),

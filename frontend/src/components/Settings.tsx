@@ -47,6 +47,28 @@ export default function Settings() {
           );
         })}
       </div>
+
+      <div className="space-y-3">
+        <h3 className="font-medium">Publishing (Field Notes)</h3>
+        <p className="text-sm text-slate-500">
+          Push finished <code>.mdx</code> posts straight to your site. Set
+          <code> PUBLISH_ENABLED=true</code> and <code>FIELD_NOTES_TOKEN</code> in <code>.env</code>,
+          then restart the server.
+        </p>
+        <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+          <div>
+            <div className="text-sm font-medium">Field Notes API</div>
+            <div className="text-xs text-slate-400">
+              <code>PUBLISH_ENABLED</code> · <code>FIELD_NOTES_TOKEN</code>
+            </div>
+          </div>
+          <span className={`rounded-full px-2 py-0.5 text-xs ${account.publish_enabled ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
+            {account.publish_enabled
+              ? `enabled ${account.keys.field_notes_token ?? ""}`
+              : account.keys.field_notes_token ? "token set · disabled" : "not configured"}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
